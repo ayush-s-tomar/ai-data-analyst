@@ -68,7 +68,9 @@ copy .env.example .env
 
 Open `.env` and set:
 
+```
 GROQ_API_KEY=gsk_your_key_here
+```
 
 Then start the server:
 
@@ -111,6 +113,7 @@ npm start
 ---
 
 ## 📂 Project Structure
+```
 ai-data-analyst/
 ├── backend/
 │   ├── main.py
@@ -122,6 +125,7 @@ ai-data-analyst/
 │   │   └── App.css
 │   └── package.json
 └── render.yaml
+```
 
 ---
 
