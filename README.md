@@ -67,3 +67,74 @@ copy .env.example .env
 ```
 
 Open `.env` and set:
+
+GROQ_API_KEY=gsk_your_key_here
+
+Then start the server:
+
+```powershell
+uvicorn main:app --reload --port 8000
+```
+
+✅ Backend running at http://localhost:8000
+
+### Step 3 — Frontend
+*(open a NEW terminal tab)*
+
+```powershell
+cd frontend
+npm install
+npm start
+```
+
+✅ App running at http://localhost:3000
+
+---
+
+## ☁️ Deploy FREE to Production
+
+### Backend → Render.com
+1. Push to GitHub
+2. Render.com → New Web Service → connect repo
+3. Root dir: `backend`
+4. Build: `pip install -r requirements.txt`
+5. Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+6. Environment variable: `GROQ_API_KEY` = your key
+7. Deploy → copy your URL (e.g. `https://ai-data-analyst.onrender.com`)
+
+### Frontend → Vercel
+1. Vercel.com → New Project → connect same repo
+2. Root dir: `frontend`
+3. Environment variable: `REACT_APP_API_URL` = your Render URL
+4. Deploy
+
+---
+
+## 📂 Project Structure
+ai-data-analyst/
+├── backend/
+│   ├── main.py
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── App.js
+│   │   └── App.css
+│   └── package.json
+└── render.yaml
+
+---
+
+## 💡 Example Questions
+
+- "Show me a bar chart of sales by region"
+- "What's the profit trend over time?"
+- "Which product performs best?"
+- "Compare customer segments by revenue"
+
+---
+
+## 📄 License
+
+MIT — free to use, modify, and deploy.
+
