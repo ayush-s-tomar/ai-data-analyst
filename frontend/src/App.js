@@ -179,14 +179,14 @@ function App() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls,.tsv,.json"
                   style={{ display: 'none' }}
                   onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
                 />
                 <div className="upload-icon">📂</div>
                 <h3>Drop your CSV file here</h3>
                 <p>or click to browse</p>
-                <span className="upload-hint">Supports any CSV file</span>
+                <span className="upload-hint">CSV, Excel (.xlsx), TSV, JSON</span>
               </div>
             )}
 
