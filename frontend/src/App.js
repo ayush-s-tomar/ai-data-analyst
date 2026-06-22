@@ -4,6 +4,7 @@ import axios from 'axios';
 import './App.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const SUPPORTED = ['.csv', '.xlsx', '.xls', '.tsv', '.json'];
 
 function App() {
   const [step, setStep] = useState('upload');
@@ -14,16 +15,36 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
+  const [warmingUp, setWarmingUp] = useState(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Wake up Render server on page load
+  useEffect(() => {
+    const wakeServer = async () => {
+      setWarmingUp(true);
+      try {
+        await axios.get(`${API_BASE}/`, { timeout: 60000 });
+        setServerReady(true);
+      } catch {
+        setServerReady(false);
+      } finally {
+        setWarmingUp(false);
+      }
+    };
+    wakeServer();
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleFileUpload = async (file) => {
-    if (!file || !file.name.endsWith('.csv')) {
-      setError('Please upload a CSV file');
+    if (!file) return;
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!SUPPORTED.includes(ext)) {
+      setError('Unsupported file. Please upload CSV, Excel (.xlsx), TSV, or JSON');
       return;
     }
     setError('');
@@ -35,7 +56,8 @@ function App() {
 
     try {
       const response = await axios.post(`${API_BASE}/analyze`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000
       });
       const data = response.data;
       setFileData(data);
@@ -48,7 +70,11 @@ function App() {
       }]);
       setStep('chat');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to analyze file');
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timed out. The server may be waking up — please try again in 30 seconds.');
+      } else {
+        setError(err.response?.data?.detail || 'Failed to analyze file. Please try again.');
+      }
       setStep('upload');
     } finally {
       setLoading(false);
@@ -73,7 +99,6 @@ function App() {
     setLoading(true);
     setError('');
 
-    // Full conversation history sent to backend (excluding initial analysis)
     const historyForAPI = messages
       .filter(m => !m.isInitial && m.role && m.content)
       .map(m => ({ role: m.role, content: m.content }));
@@ -83,7 +108,7 @@ function App() {
         question: question,
         csv_data: csvData,
         history: historyForAPI
-      });
+      }, { timeout: 120000 });
 
       const data = response.data;
       setMessages([...newMessages, {
@@ -95,7 +120,11 @@ function App() {
         timestamp: new Date()
       }]);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to process question');
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(err.response?.data?.detail || 'Failed to process question.');
+      }
     } finally {
       setLoading(false);
     }
@@ -130,10 +159,17 @@ function App() {
             <span className="logo-text">AI Data Analyst</span>
           </div>
 
+          {/* Server status */}
+          <div className={`server-status ${serverReady ? 'ready' : warmingUp ? 'warming' : 'offline'}`}>
+            <span className="status-dot"></span>
+            {warmingUp ? 'Warming up server...' : serverReady ? 'Server ready' : 'Server offline'}
+          </div>
+
           {fileData && (
             <div className="file-badge">
               <span>📄</span>
               <span>{fileData.filename}</span>
+              {fileData.filetype && <span className="filetype-tag">{fileData.filetype}</span>}
               <span className="badge-stats">{fileData.rows.toLocaleString()} rows · {fileData.columns} cols</span>
             </div>
           )}
@@ -146,9 +182,7 @@ function App() {
           )}
 
           {step === 'chat' && (
-            <button className="btn-secondary" onClick={handleReset}>
-              + New File
-            </button>
+            <button className="btn-secondary" onClick={handleReset}>+ New File</button>
           )}
         </div>
       </header>
@@ -159,14 +193,23 @@ function App() {
           <div className="upload-container">
             <div className="upload-hero">
               <h1>Analyze your data with AI</h1>
-              <p>Upload CSV, Excel, TSV or JSON — ask questions in plain English and get instant insights, charts, and analysis — with full conversation memory.</p>
+              <p>Upload CSV, Excel, TSV or JSON — ask questions in plain English and get instant insights, charts, and analysis with full conversation memory.</p>
             </div>
+
+            {/* Server warming banner */}
+            {warmingUp && (
+              <div className="warming-banner">
+                <div className="warming-spinner"></div>
+                <span>Warming up server — this takes ~30 seconds on first load. You can upload your file now.</span>
+              </div>
+            )}
 
             {step === 'analyzing' ? (
               <div className="analyzing-card">
                 <div className="spinner"></div>
                 <h3>Analyzing your data...</h3>
                 <p>AI is examining your dataset and preparing insights</p>
+                <p className="analyzing-note">This may take up to 60 seconds</p>
               </div>
             ) : (
               <div
@@ -186,11 +229,18 @@ function App() {
                 <div className="upload-icon">📂</div>
                 <h3>Drop your file here</h3>
                 <p>or click to browse</p>
-                <span className="upload-hint">CSV, Excel (.xlsx), TSV, JSON</span>
+                <span className="upload-hint">CSV · Excel (.xlsx) · TSV · JSON</span>
               </div>
             )}
 
-            {error && <div className="error-box">⚠️ {error}</div>}
+            {error && (
+              <div className="error-box">
+                ⚠️ {error}
+                {error.includes('timed out') && (
+                  <button className="retry-btn" onClick={() => setError('')}>Dismiss & retry</button>
+                )}
+              </div>
+            )}
 
             <div className="features">
               <div className="feature"><span>🤖</span><span>AI-powered analysis</span></div>
@@ -204,7 +254,6 @@ function App() {
         {/* Chat Step */}
         {step === 'chat' && (
           <div className="chat-container">
-            {/* Sidebar */}
             {fileData && (
               <div className="sidebar">
                 <div className="sidebar-section">
@@ -222,7 +271,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Memory panel */}
                 <div className="sidebar-section memory-panel">
                   <h3>Session Memory</h3>
                   {conversationCount === 0 ? (
@@ -242,7 +290,6 @@ function App() {
             )}
 
             <div className="chat-area">
-              {/* Messages */}
               <div className="messages">
                 {messages.map((msg, i) => (
                   <div key={i} className={`message message-${msg.role}`}>
@@ -254,33 +301,27 @@ function App() {
                         {msg.isInitial && <span className="initial-badge">📊 Initial Analysis</span>}
                         <span className="message-time">{formatTime(msg.timestamp)}</span>
                       </div>
-
                       <div className="message-text">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
-
                       {msg.codeOutput && (
                         <div className="code-output">
                           <div className="code-output-header"><span>⚡ Output</span></div>
                           <pre>{msg.codeOutput}</pre>
                         </div>
                       )}
-
                       {msg.codeError && (
                         <div className="code-error">
                           <div className="code-error-header">⚠️ Code Error</div>
                           <pre>{msg.codeError}</pre>
                         </div>
                       )}
-
                       {msg.charts && msg.charts.length > 0 && (
                         <div className="charts-grid">
                           {msg.charts.map((chart, ci) => (
                             <div key={ci} className="chart-wrapper">
                               <img src={chart} alt={`Chart ${ci + 1}`} />
-                              <a href={chart} download={`chart-${ci + 1}.png`} className="chart-download">
-                                ⬇ Download
-                              </a>
+                              <a href={chart} download={`chart-${ci + 1}.png`} className="chart-download">⬇ Download</a>
                             </div>
                           ))}
                         </div>
@@ -296,28 +337,26 @@ function App() {
                       <div className="typing-indicator">
                         <span></span><span></span><span></span>
                       </div>
-                      <span className="typing-label">Analyzing with memory context...</span>
+                      <span className="typing-label">
+                        {conversationCount > 0 ? 'Analyzing with memory context...' : 'Analyzing your data...'}
+                      </span>
                     </div>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Suggested questions */}
               {messages.length <= 1 && (
                 <div className="suggestions">
                   <p>Try asking:</p>
                   <div className="suggestion-chips">
                     {suggestedQuestions.map((q, i) => (
-                      <button key={i} className="chip" onClick={() => setQuestion(q)}>
-                        {q}
-                      </button>
+                      <button key={i} className="chip" onClick={() => setQuestion(q)}>{q}</button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Memory context bar */}
               {conversationCount > 0 && (
                 <div className="memory-bar">
                   <span className="memory-dot"></span>
@@ -326,12 +365,11 @@ function App() {
                 </div>
               )}
 
-              {/* Input */}
               <form className="chat-input" onSubmit={handleQuestion}>
                 <input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder={conversationCount > 0 ? "Ask a follow-up or a new question..." : "Ask a question about your data..."}
+                  placeholder={conversationCount > 0 ? 'Ask a follow-up or a new question...' : 'Ask a question about your data...'}
                   disabled={loading}
                 />
                 <button type="submit" disabled={loading || !question.trim()}>
