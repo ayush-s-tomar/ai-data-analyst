@@ -19,10 +19,18 @@ function App() {
   const [currentFile, setCurrentFile] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const retryTimeoutRef = useRef(null); // ✅ FIX 2: ref to cancel retry timeout
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // ✅ FIX 2: cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    };
+  }, []);
 
   const handleFileUpload = async (file, attempt = 1) => {
     if (!file) return;
@@ -50,6 +58,7 @@ function App() {
       setFileData(data);
       setCsvData(data.csv_data);
       setRetryCount(0);
+      setLoading(false); // ✅ FIX 1: was missing — chat input was permanently disabled
       setMessages([{
         role: 'assistant',
         content: data.initial_analysis,
@@ -58,11 +67,14 @@ function App() {
       }]);
       setStep('chat');
     } catch (err) {
-      if (attempt < 4) {
+      if (attempt < 8) { // ✅ FIX 3: increased from 4→8 attempts (~2 min total for Render cold start)
         setRetryCount(attempt);
-        setTimeout(() => handleFileUpload(file, attempt + 1), 8000);
+        retryTimeoutRef.current = setTimeout(
+          () => handleFileUpload(file, attempt + 1),
+          15000 // ✅ FIX 3: increased from 8s→15s gap to give backend more time
+        );
       } else {
-        setError('Server is not responding. Please try again in a minute.');
+        setError('Server is not responding. Please wait a minute and try again.');
         setStep('upload');
         setLoading(false);
         setRetryCount(0);
@@ -116,6 +128,11 @@ function App() {
   };
 
   const handleReset = () => {
+    // ✅ FIX 2: cancel any pending retry before resetting
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
     setStep('upload');
     setFileData(null);
     setMessages([]);
@@ -123,6 +140,7 @@ function App() {
     setError('');
     setCurrentFile(null);
     setRetryCount(0);
+    setLoading(false);
   };
 
   const conversationCount = messages.filter(m => !m.isInitial).length;
@@ -169,7 +187,7 @@ function App() {
       </header>
 
       <main className="main">
-        {/* Upload Step */}
+        {/* Upload / Analyzing Step */}
         {(step === 'upload' || step === 'analyzing') && (
           <div className="upload-container">
             <div className="upload-hero">
@@ -183,14 +201,22 @@ function App() {
                 <h3>
                   {retryCount === 0
                     ? 'Analyzing your data...'
-                    : `Waking up server... (attempt ${retryCount}/3)`}
+                    : `Waking up server... (attempt ${retryCount}/7)`}
                 </h3>
                 <p>AI is examining your dataset and preparing insights</p>
                 {retryCount > 0 && (
                   <p className="analyzing-note">
-                    Server is starting up — this can take 1-2 minutes on free tier
+                    Server is starting up — this can take 1–2 minutes on free tier
                   </p>
                 )}
+                {/* ✅ FIX 2: cancel button so user isn't stuck */}
+                <button
+                  className="btn-secondary"
+                  style={{ marginTop: '1.25rem' }}
+                  onClick={handleReset}
+                >
+                  Cancel
+                </button>
               </div>
             ) : (
               <div
