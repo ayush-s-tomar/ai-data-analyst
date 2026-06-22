@@ -10,6 +10,20 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import base64
 from groq import Groq
+
+app = FastAPI(title="AI Data Analyst Agent")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
 SUPPORTED_EXTENSIONS = ['.csv', '.xlsx', '.xls', '.tsv', '.json']
 
 def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
@@ -24,23 +38,8 @@ def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
         return pd.read_json(io.BytesIO(contents))
     else:
         raise ValueError(f"Unsupported file type: {ext}")
-app = FastAPI(title="AI Data Analyst Agent")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-# Best free Groq model for code + analysis tasks
-GROQ_MODEL = "llama-3.3-70b-versatile"
 
 def chat(system: str, messages: list, max_tokens: int = 2000) -> str:
-    """Unified Groq chat call."""
     groq_messages = [{"role": "system", "content": system}] + messages
     response = client.chat.completions.create(
         model=GROQ_MODEL,
@@ -65,41 +64,31 @@ def df_to_string(df: pd.DataFrame, max_rows: int = 50) -> str:
 def execute_python_code(code: str, df: pd.DataFrame) -> dict:
     import sys
     from io import StringIO
-
     old_stdout = sys.stdout
     sys.stdout = mystdout = StringIO()
     charts = []
     output_text = ""
     error = None
-
     try:
         plt.close('all')
         local_vars = {
-            'df': df.copy(),
-            'pd': pd,
-            'plt': plt,
-            'json': json,
-            '__builtins__': __builtins__,
+            'df': df.copy(), 'pd': pd, 'plt': plt,
+            'json': json, '__builtins__': __builtins__,
         }
         exec(code, local_vars)
         output_text = mystdout.getvalue()
-
-        figs = [plt.figure(i) for i in plt.get_fignums()]
-        for fig in figs:
+        for fig in [plt.figure(i) for i in plt.get_fignums()]:
             buf = io.BytesIO()
             fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
                         facecolor='white', edgecolor='none')
             buf.seek(0)
-            img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-            charts.append(f"data:image/png;base64,{img_base64}")
+            charts.append(f"data:image/png;base64,{base64.b64encode(buf.read()).decode()}")
             plt.close(fig)
-
     except Exception as e:
         error = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
     finally:
         sys.stdout = old_stdout
         plt.close('all')
-
     return {"output": output_text, "charts": charts, "error": error}
 
 
@@ -109,19 +98,19 @@ def root():
 
 
 @app.post("/analyze")
-async def analyze_csv(file: UploadFile = File(...)):
+async def analyze_file(file: UploadFile = File(...)):
     ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext}'")
-
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Supported: {', '.join(SUPPORTED_EXTENSIONS)}"
+        )
     contents = await file.read()
     try:
         df = read_file_to_df(contents, file.filename)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {str(e)}")
-
+        raise HTTPException(status_code=400, detail=f"Could not parse file: {str(e)}")
     df_summary = df_to_string(df)
-
     system = "You are an expert data analyst. Be concise, insightful, and use clear markdown formatting."
     user_msg = f"""Analyze this dataset and provide:
 1. A brief summary of what the data contains
@@ -131,27 +120,23 @@ async def analyze_csv(file: UploadFile = File(...)):
 
 Dataset info:
 {df_summary}"""
-
     analysis = chat(system, [{"role": "user", "content": user_msg}], max_tokens=1200)
-
     columns_info = [
-        {
-            "name": col,
-            "dtype": str(df[col].dtype),
-            "non_null": int(df[col].count()),
-            "unique": int(df[col].nunique())
-        }
+        {"name": col, "dtype": str(df[col].dtype),
+         "non_null": int(df[col].count()), "unique": int(df[col].nunique())}
         for col in df.columns
     ]
-
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
     return {
         "filename": file.filename,
+        "filetype": ext.lstrip('.').upper(),
         "rows": len(df),
         "columns": len(df.columns),
         "columns_info": columns_info,
         "initial_analysis": analysis,
         "data_preview": df.head(10).to_dict(orient='records'),
-        "csv_data": contents.decode('utf-8')
+        "csv_data": csv_buffer.getvalue()
     }
 
 
@@ -160,17 +145,13 @@ async def query_data(request: dict):
     question = request.get("question", "")
     csv_data = request.get("csv_data", "")
     conversation_history = request.get("history", [])
-
     if not question or not csv_data:
-        raise HTTPException(status_code=400, detail="Question and CSV data are required")
-
+        raise HTTPException(status_code=400, detail="Question and data are required")
     try:
         df = pd.read_csv(io.StringIO(csv_data))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse data: {str(e)}")
-
     df_summary = df_to_string(df, max_rows=20)
-
     system_prompt = f"""You are an expert data analyst with Python expertise.
 You have access to a pandas DataFrame called 'df' and matplotlib as 'plt'.
 
@@ -187,16 +168,13 @@ Format your response as:
 ANALYSIS: [Brief explanation of your approach]
 
 ```python
-[Your Python code here - use print() for outputs, plt for charts]
+[Your Python code here]
 ```
 
 INTERPRETATION: [Key insights from the results]"""
-
     messages = conversation_history.copy()
     messages.append({"role": "user", "content": question})
-
     ai_response = chat(system_prompt, messages, max_tokens=2000)
-
     code_results = {"output": "", "charts": [], "error": None}
     if "```python" in ai_response:
         code_start = ai_response.find("```python") + 9
@@ -204,7 +182,6 @@ INTERPRETATION: [Key insights from the results]"""
         if code_end > code_start:
             code = ai_response[code_start:code_end].strip()
             code_results = execute_python_code(code, df)
-
     return {
         "question": question,
         "ai_response": ai_response,
