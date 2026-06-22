@@ -6,9 +6,8 @@ import './App.css';
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 function App() {
-  const [step, setStep] = useState('upload'); // upload | analyzing | chat
+  const [step, setStep] = useState('upload');
   const [fileData, setFileData] = useState(null);
-  const [initialAnalysis, setInitialAnalysis] = useState('');
   const [csvData, setCsvData] = useState('');
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState('');
@@ -41,11 +40,11 @@ function App() {
       const data = response.data;
       setFileData(data);
       setCsvData(data.csv_data);
-      setInitialAnalysis(data.initial_analysis);
       setMessages([{
         role: 'assistant',
         content: data.initial_analysis,
-        isInitial: true
+        isInitial: true,
+        timestamp: new Date()
       }]);
       setStep('chat');
     } catch (err) {
@@ -67,16 +66,16 @@ function App() {
     e.preventDefault();
     if (!question.trim() || loading) return;
 
-    const userMessage = { role: 'user', content: question };
+    const userMessage = { role: 'user', content: question, timestamp: new Date() };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setQuestion('');
     setLoading(true);
     setError('');
 
-    // Build history for API (exclude initial analysis message)
+    // Full conversation history sent to backend (excluding initial analysis)
     const historyForAPI = messages
-      .filter(m => !m.isInitial)
+      .filter(m => !m.isInitial && m.role && m.content)
       .map(m => ({ role: m.role, content: m.content }));
 
     try {
@@ -87,20 +86,31 @@ function App() {
       });
 
       const data = response.data;
-      const assistantMessage = {
+      setMessages([...newMessages, {
         role: 'assistant',
         content: data.ai_response,
         codeOutput: data.code_output,
         charts: data.charts,
-        codeError: data.code_error
-      };
-      setMessages([...newMessages, assistantMessage]);
+        codeError: data.code_error,
+        timestamp: new Date()
+      }]);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to process question');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleReset = () => {
+    setStep('upload');
+    setFileData(null);
+    setMessages([]);
+    setCsvData('');
+    setError('');
+  };
+
+  const conversationCount = messages.filter(m => !m.isInitial).length;
+  const formatTime = (date) => date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const suggestedQuestions = [
     "Show me a bar chart of sales by region",
@@ -119,6 +129,7 @@ function App() {
             <span className="logo-icon">📊</span>
             <span className="logo-text">AI Data Analyst</span>
           </div>
+
           {fileData && (
             <div className="file-badge">
               <span>📄</span>
@@ -126,12 +137,17 @@ function App() {
               <span className="badge-stats">{fileData.rows.toLocaleString()} rows · {fileData.columns} cols</span>
             </div>
           )}
+
+          {step === 'chat' && conversationCount > 0 && (
+            <div className="memory-pill">
+              <span className="memory-dot"></span>
+              🧠 {conversationCount} message{conversationCount !== 1 ? 's' : ''} in memory
+            </div>
+          )}
+
           {step === 'chat' && (
-            <button className="btn-secondary" onClick={() => {
-              setStep('upload'); setFileData(null); setMessages([]);
-              setCsvData(''); setInitialAnalysis('');
-            }}>
-              New File
+            <button className="btn-secondary" onClick={handleReset}>
+              + New File
             </button>
           )}
         </div>
@@ -143,14 +159,14 @@ function App() {
           <div className="upload-container">
             <div className="upload-hero">
               <h1>Analyze your data with AI</h1>
-              <p>Upload any CSV file and ask questions in plain English. Get instant insights, charts, and analysis powered by Claude.</p>
+              <p>Upload any CSV file and ask questions in plain English. Get instant insights, charts, and analysis — with full conversation memory.</p>
             </div>
 
             {step === 'analyzing' ? (
               <div className="analyzing-card">
                 <div className="spinner"></div>
                 <h3>Analyzing your data...</h3>
-                <p>Claude is examining your dataset and preparing insights</p>
+                <p>AI is examining your dataset and preparing insights</p>
               </div>
             ) : (
               <div
@@ -174,12 +190,12 @@ function App() {
               </div>
             )}
 
-            {error && <div className="error-box">{error}</div>}
+            {error && <div className="error-box">⚠️ {error}</div>}
 
             <div className="features">
               <div className="feature"><span>🤖</span><span>AI-powered analysis</span></div>
               <div className="feature"><span>📈</span><span>Auto-generated charts</span></div>
-              <div className="feature"><span>💬</span><span>Natural language queries</span></div>
+              <div className="feature"><span>🧠</span><span>Conversation memory</span></div>
               <div className="feature"><span>🐍</span><span>Python code execution</span></div>
             </div>
           </div>
@@ -188,22 +204,39 @@ function App() {
         {/* Chat Step */}
         {step === 'chat' && (
           <div className="chat-container">
-            {/* Column info sidebar */}
+            {/* Sidebar */}
             {fileData && (
               <div className="sidebar">
-                <h3>Dataset Columns</h3>
-                <div className="columns-list">
-                  {fileData.columns_info.map(col => (
-                    <div key={col.name} className="column-item">
-                      <div className="column-name">{col.name}</div>
-                      <div className="column-meta">
-                        <span className={`dtype-badge dtype-${col.dtype.replace(/[^a-z]/g, '')}`}>
-                          {col.dtype}
-                        </span>
-                        <span className="col-stat">{col.unique} unique</span>
+                <div className="sidebar-section">
+                  <h3>Dataset Columns</h3>
+                  <div className="columns-list">
+                    {fileData.columns_info.map(col => (
+                      <div key={col.name} className="column-item">
+                        <div className="column-name">{col.name}</div>
+                        <div className="column-meta">
+                          <span className="dtype-badge">{col.dtype}</span>
+                          <span className="col-stat">{col.unique} unique</span>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Memory panel */}
+                <div className="sidebar-section memory-panel">
+                  <h3>Session Memory</h3>
+                  {conversationCount === 0 ? (
+                    <p className="memory-empty">Ask your first question to start building memory</p>
+                  ) : (
+                    <div className="memory-list">
+                      {messages.filter(m => m.role === 'user').map((m, i) => (
+                        <div key={i} className="memory-item">
+                          <span className="memory-index">{i + 1}</span>
+                          <span className="memory-q">{m.content.length > 45 ? m.content.slice(0, 45) + '...' : m.content}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -217,24 +250,22 @@ function App() {
                       {msg.role === 'assistant' ? '🤖' : '👤'}
                     </div>
                     <div className="message-content">
-                      {msg.isInitial && (
-                        <div className="initial-badge">📊 Initial Analysis</div>
-                      )}
+                      <div className="message-meta">
+                        {msg.isInitial && <span className="initial-badge">📊 Initial Analysis</span>}
+                        <span className="message-time">{formatTime(msg.timestamp)}</span>
+                      </div>
+
                       <div className="message-text">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
 
-                      {/* Code output */}
                       {msg.codeOutput && (
                         <div className="code-output">
-                          <div className="code-output-header">
-                            <span>⚡ Output</span>
-                          </div>
+                          <div className="code-output-header"><span>⚡ Output</span></div>
                           <pre>{msg.codeOutput}</pre>
                         </div>
                       )}
 
-                      {/* Code error */}
                       {msg.codeError && (
                         <div className="code-error">
                           <div className="code-error-header">⚠️ Code Error</div>
@@ -242,12 +273,14 @@ function App() {
                         </div>
                       )}
 
-                      {/* Charts */}
                       {msg.charts && msg.charts.length > 0 && (
                         <div className="charts-grid">
                           {msg.charts.map((chart, ci) => (
                             <div key={ci} className="chart-wrapper">
                               <img src={chart} alt={`Chart ${ci + 1}`} />
+                              <a href={chart} download={`chart-${ci + 1}.png`} className="chart-download">
+                                ⬇ Download
+                              </a>
                             </div>
                           ))}
                         </div>
@@ -263,6 +296,7 @@ function App() {
                       <div className="typing-indicator">
                         <span></span><span></span><span></span>
                       </div>
+                      <span className="typing-label">Analyzing with memory context...</span>
                     </div>
                   </div>
                 )}
@@ -275,15 +309,20 @@ function App() {
                   <p>Try asking:</p>
                   <div className="suggestion-chips">
                     {suggestedQuestions.map((q, i) => (
-                      <button
-                        key={i}
-                        className="chip"
-                        onClick={() => setQuestion(q)}
-                      >
+                      <button key={i} className="chip" onClick={() => setQuestion(q)}>
                         {q}
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Memory context bar */}
+              {conversationCount > 0 && (
+                <div className="memory-bar">
+                  <span className="memory-dot"></span>
+                  🧠 AI remembers your last {conversationCount} message{conversationCount !== 1 ? 's' : ''} — ask follow-up questions naturally
+                  {conversationCount >= 8 && <span className="memory-warn"> · Memory near limit, consider starting a new session</span>}
                 </div>
               )}
 
@@ -292,7 +331,7 @@ function App() {
                 <input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask a question about your data..."
+                  placeholder={conversationCount > 0 ? "Ask a follow-up or a new question..." : "Ask a question about your data..."}
                   disabled={loading}
                 />
                 <button type="submit" disabled={loading || !question.trim()}>
@@ -300,7 +339,7 @@ function App() {
                 </button>
               </form>
 
-              {error && <div className="error-box">{error}</div>}
+              {error && <div className="error-box">⚠️ {error}</div>}
             </div>
           </div>
         )}
