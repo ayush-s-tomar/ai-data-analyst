@@ -159,7 +159,7 @@ function App() {
           <div className="upload-container">
             <div className="upload-hero">
               <h1>Analyze your data with AI</h1>
-              <p>Upload any CSV file and ask questions in plain English. Get instant insights, charts, and analysis — with full conversation memory.</p>
+              <p>Upload CSV, Excel, TSV or JSON and ask questions in plain English Get instant insights, charts, and analysis — with full conversation memory.</p>
             </div>
 
             {step === 'analyzing' ? (
@@ -184,7 +184,7 @@ function App() {
                   onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
                 />
                 <div className="upload-icon">📂</div>
-                <h3>Drop your CSV file here</h3>
+                <h3>Drop your file here</h3>
                 <p>or click to browse</p>
                 <span className="upload-hint">CSV, Excel (.xlsx), TSV, JSON</span>
               </div>
