@@ -20,29 +20,9 @@ function App() {
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-// Wake up Render server on page load — retries until ready
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 10;
-    setWarmingUp(true);
-
-    const tryWake = async () => {
-      attempts++;
-      try {
-        await axios.get(`${API_BASE}/`, { timeout: 15000 });
-        setServerReady(true);
-        setWarmingUp(false);
-      } catch {
-        if (attempts < maxAttempts) {
-          setTimeout(tryWake, 10000); // retry every 10 seconds
-        } else {
-          setServerReady(false);
-          setWarmingUp(false);
-        }
-      }
-    };
-
-    tryWake();
+useEffect(() => {
+    setServerReady(true);
+    setWarmingUp(false);
   }, []);
 
   useEffect(() => {
