@@ -159,7 +159,7 @@ function App() {
           <div className="upload-container">
             <div className="upload-hero">
               <h1>Analyze your data with AI</h1>
-              <p>Upload CSV, Excel, TSV or JSON and ask questions in plain English Get instant insights, charts, and analysis — with full conversation memory.</p>
+              <p>Upload CSV, Excel, TSV or JSON — ask questions in plain English and get instant insights, charts, and analysis — with full conversation memory.</p>
             </div>
 
             {step === 'analyzing' ? (
