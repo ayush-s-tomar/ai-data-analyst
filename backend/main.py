@@ -5,6 +5,9 @@ import io
 import json
 import os
 import traceback
+import threading
+import requests
+import time
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -25,6 +28,20 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 SUPPORTED_EXTENSIONS = ['.csv', '.xlsx', '.xls', '.tsv', '.json']
+
+# ✅ Keep-alive: pings this server every 10 min so Render free tier never sleeps
+def _keep_alive():
+    url = "https://ai-data-analyst-fdcx.onrender.com/"
+    time.sleep(60)  # wait for server to fully start before first ping
+    while True:
+        try:
+            requests.get(url, timeout=10)
+        except Exception:
+            pass
+        time.sleep(600)  # ping every 10 minutes
+
+threading.Thread(target=_keep_alive, daemon=True).start()
+
 
 def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
     ext = os.path.splitext(filename)[1].lower()
