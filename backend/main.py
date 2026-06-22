@@ -10,7 +10,20 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import base64
 from groq import Groq
+SUPPORTED_EXTENSIONS = ['.csv', '.xlsx', '.xls', '.tsv', '.json']
 
+def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
+    ext = os.path.splitext(filename)[1].lower()
+    if ext == '.csv':
+        return pd.read_csv(io.BytesIO(contents))
+    elif ext in ['.xlsx', '.xls']:
+        return pd.read_excel(io.BytesIO(contents))
+    elif ext == '.tsv':
+        return pd.read_csv(io.BytesIO(contents), sep='\t')
+    elif ext == '.json':
+        return pd.read_json(io.BytesIO(contents))
+    else:
+        raise ValueError(f"Unsupported file type: {ext}")
 app = FastAPI(title="AI Data Analyst Agent")
 
 app.add_middleware(
@@ -97,12 +110,13 @@ def root():
 
 @app.post("/analyze")
 async def analyze_csv(file: UploadFile = File(...)):
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+    ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext}'")
 
     contents = await file.read()
     try:
-        df = pd.read_csv(io.BytesIO(contents))
+        df = read_file_to_df(contents, file.filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {str(e)}")
 
