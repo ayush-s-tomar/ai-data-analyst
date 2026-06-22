@@ -15,30 +15,28 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
-  const [serverReady, setServerReady] = useState(false);
-  const [warmingUp, setWarmingUp] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [currentFile, setCurrentFile] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
-
-useEffect(() => {
-    setServerReady(true);
-    setWarmingUp(false);
-  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (file, attempt = 1) => {
     if (!file) return;
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!SUPPORTED.includes(ext)) {
       setError('Unsupported file. Please upload CSV, Excel (.xlsx), TSV, or JSON');
       return;
     }
+
     setError('');
+    setCurrentFile(file);
     setStep('analyzing');
     setLoading(true);
+    setRetryCount(attempt - 1);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -46,11 +44,12 @@ useEffect(() => {
     try {
       const response = await axios.post(`${API_BASE}/analyze`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000
+        timeout: 300000
       });
       const data = response.data;
       setFileData(data);
       setCsvData(data.csv_data);
+      setRetryCount(0);
       setMessages([{
         role: 'assistant',
         content: data.initial_analysis,
@@ -59,14 +58,15 @@ useEffect(() => {
       }]);
       setStep('chat');
     } catch (err) {
-      if (err.code === 'ECONNABORTED') {
-        setError('Request timed out. The server may be waking up — please try again in 30 seconds.');
+      if (attempt < 4) {
+        setRetryCount(attempt);
+        setTimeout(() => handleFileUpload(file, attempt + 1), 8000);
       } else {
-        setError(err.response?.data?.detail || 'Failed to analyze file. Please try again.');
+        setError('Server is not responding. Please try again in a minute.');
+        setStep('upload');
+        setLoading(false);
+        setRetryCount(0);
       }
-      setStep('upload');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -97,7 +97,7 @@ useEffect(() => {
         question: question,
         csv_data: csvData,
         history: historyForAPI
-      }, { timeout: 120000 });
+      }, { timeout: 300000 });
 
       const data = response.data;
       setMessages([...newMessages, {
@@ -109,11 +109,7 @@ useEffect(() => {
         timestamp: new Date()
       }]);
     } catch (err) {
-      if (err.code === 'ECONNABORTED') {
-        setError('Request timed out. Please try again.');
-      } else {
-        setError(err.response?.data?.detail || 'Failed to process question.');
-      }
+      setError('Request failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -125,6 +121,8 @@ useEffect(() => {
     setMessages([]);
     setCsvData('');
     setError('');
+    setCurrentFile(null);
+    setRetryCount(0);
   };
 
   const conversationCount = messages.filter(m => !m.isInitial).length;
@@ -146,12 +144,6 @@ useEffect(() => {
           <div className="logo">
             <span className="logo-icon">📊</span>
             <span className="logo-text">AI Data Analyst</span>
-          </div>
-
-          {/* Server status */}
-          <div className={`server-status ${serverReady ? 'ready' : warmingUp ? 'warming' : 'offline'}`}>
-            <span className="status-dot"></span>
-            {warmingUp ? 'Warming up server...' : serverReady ? 'Server ready' : 'Server offline'}
           </div>
 
           {fileData && (
@@ -185,20 +177,20 @@ useEffect(() => {
               <p>Upload CSV, Excel, TSV or JSON — ask questions in plain English and get instant insights, charts, and analysis with full conversation memory.</p>
             </div>
 
-            {/* Server warming banner */}
-            {warmingUp && (
-              <div className="warming-banner">
-                <div className="warming-spinner"></div>
-                <span>Warming up server — this takes ~30 seconds on first load. You can upload your file now.</span>
-              </div>
-            )}
-
             {step === 'analyzing' ? (
               <div className="analyzing-card">
                 <div className="spinner"></div>
-                <h3>Analyzing your data...</h3>
+                <h3>
+                  {retryCount === 0
+                    ? 'Analyzing your data...'
+                    : `Waking up server... (attempt ${retryCount}/3)`}
+                </h3>
                 <p>AI is examining your dataset and preparing insights</p>
-                <p className="analyzing-note">This may take up to 60 seconds</p>
+                {retryCount > 0 && (
+                  <p className="analyzing-note">
+                    Server is starting up — this can take 1-2 minutes on free tier
+                  </p>
+                )}
               </div>
             ) : (
               <div
@@ -225,9 +217,10 @@ useEffect(() => {
             {error && (
               <div className="error-box">
                 ⚠️ {error}
-                {error.includes('timed out') && (
-                  <button className="retry-btn" onClick={() => setError('')}>Dismiss & retry</button>
-                )}
+                <button className="retry-btn" onClick={() => {
+                  setError('');
+                  if (currentFile) handleFileUpload(currentFile);
+                }}>Retry</button>
               </div>
             )}
 
