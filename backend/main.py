@@ -8,6 +8,8 @@ import traceback
 import threading
 import requests
 import time
+import sqlite3
+import xml.etree.ElementTree as ET
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -27,34 +29,116 @@ app.add_middleware(
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-SUPPORTED_EXTENSIONS = ['.csv', '.xlsx', '.xls', '.tsv', '.json']
+SUPPORTED_EXTENSIONS = [
+    '.csv', '.xlsx', '.xls', '.tsv', '.json',
+    '.parquet', '.xml', '.db', '.sqlite', '.sqlite3',
+    '.pdf', '.ods', '.feather', '.pkl', '.pickle'
+]
 
-# ✅ Keep-alive: pings this server every 10 min so Render free tier never sleeps
+# Keep-alive: pings this server every 10 min so Render free tier never sleeps
 def _keep_alive():
     url = "https://ai-data-analyst-fdcx.onrender.com/"
-    time.sleep(60)  # wait for server to fully start before first ping
+    time.sleep(60)
     while True:
         try:
             requests.get(url, timeout=10)
         except Exception:
             pass
-        time.sleep(600)  # ping every 10 minutes
+        time.sleep(600)
 
 threading.Thread(target=_keep_alive, daemon=True).start()
 
 
 def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
     ext = os.path.splitext(filename)[1].lower()
+
     if ext == '.csv':
         return pd.read_csv(io.BytesIO(contents))
+
     elif ext in ['.xlsx', '.xls']:
         return pd.read_excel(io.BytesIO(contents))
+
+    elif ext == '.ods':
+        return pd.read_excel(io.BytesIO(contents), engine='odf')
+
     elif ext == '.tsv':
         return pd.read_csv(io.BytesIO(contents), sep='\t')
+
     elif ext == '.json':
-        return pd.read_json(io.BytesIO(contents))
+        try:
+            return pd.read_json(io.BytesIO(contents))
+        except Exception:
+            data = json.loads(contents)
+            if isinstance(data, list):
+                return pd.DataFrame(data)
+            elif isinstance(data, dict):
+                return pd.DataFrame([data]) if not any(isinstance(v, list) for v in data.values()) else pd.DataFrame(data)
+            raise ValueError("Cannot convert JSON structure to table")
+
+    elif ext == '.parquet':
+        return pd.read_parquet(io.BytesIO(contents))
+
+    elif ext == '.feather':
+        return pd.read_feather(io.BytesIO(contents))
+
+    elif ext in ['.pkl', '.pickle']:
+        return pd.read_pickle(io.BytesIO(contents))
+
+    elif ext == '.xml':
+        try:
+            return pd.read_xml(io.BytesIO(contents))
+        except Exception:
+            root = ET.fromstring(contents)
+            records = []
+            for child in root:
+                records.append({subchild.tag: subchild.text for subchild in child})
+            if not records:
+                records = [{child.tag: child.text for child in root}]
+            return pd.DataFrame(records)
+
+    elif ext in ['.db', '.sqlite', '.sqlite3']:
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+        conn = sqlite3.connect(tmp_path)
+        tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)
+        if tables.empty:
+            raise ValueError("No tables found in SQLite database")
+        table_name = tables['name'].iloc[0]
+        df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn)
+        conn.close()
+        os.unlink(tmp_path)
+        return df
+
+    elif ext == '.pdf':
+        try:
+            import pdfplumber
+            text_data = []
+            with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                for page in pdf.pages:
+                    tables = page.extract_tables()
+                    for table in tables:
+                        if table:
+                            text_data.extend(table)
+            if text_data and len(text_data) > 1:
+                headers = text_data[0]
+                rows = text_data[1:]
+                return pd.DataFrame(rows, columns=headers)
+            else:
+                with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                    lines = []
+                    for page in pdf.pages:
+                        text = page.extract_text()
+                        if text:
+                            lines.extend(text.split('\n'))
+                return pd.DataFrame({'text': [l for l in lines if l.strip()]})
+        except ImportError:
+            raise ValueError("PDF support requires pdfplumber. Add it to requirements.txt")
+
     else:
         raise ValueError(f"Unsupported file type: {ext}")
+
 
 def chat(system: str, messages: list, max_tokens: int = 2000) -> str:
     groq_messages = [{"role": "system", "content": system}] + messages
@@ -65,6 +149,7 @@ def chat(system: str, messages: list, max_tokens: int = 2000) -> str:
         temperature=0.3,
     )
     return response.choices[0].message.content
+
 
 def df_to_string(df: pd.DataFrame, max_rows: int = 50) -> str:
     info = []
@@ -77,6 +162,7 @@ def df_to_string(df: pd.DataFrame, max_rows: int = 50) -> str:
     if null_counts.any():
         info.append(f"\nNull counts:\n{null_counts[null_counts > 0].to_string()}")
     return "\n".join(info)
+
 
 def execute_python_code(code: str, df: pd.DataFrame) -> dict:
     import sys
@@ -127,6 +213,9 @@ async def analyze_file(file: UploadFile = File(...)):
         df = read_file_to_df(contents, file.filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse file: {str(e)}")
+
+    df.columns = [str(c).strip() for c in df.columns]
+
     df_summary = df_to_string(df)
     system = "You are an expert data analyst. Be concise, insightful, and use clear markdown formatting."
     user_msg = f"""Analyze this dataset and provide:

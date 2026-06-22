@@ -4,7 +4,7 @@ import axios from 'axios';
 import './App.css';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const SUPPORTED = ['.csv', '.xlsx', '.xls', '.tsv', '.json'];
+const SUPPORTED = ['.csv', '.xlsx', '.xls', '.tsv', '.json', '.parquet', '.xml', '.db', '.sqlite', '.sqlite3', '.pdf', '.ods', '.feather', '.pkl', '.pickle'];
 
 function App() {
   const [step, setStep] = useState('upload');
@@ -36,7 +36,7 @@ function App() {
     if (!file) return;
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!SUPPORTED.includes(ext)) {
-      setError('Unsupported file. Please upload CSV, Excel (.xlsx), TSV, or JSON');
+      setError('Unsupported file. Please upload CSV, Excel, TSV, JSON, PDF, Parquet, XML, SQLite, or ODS');
       return;
     }
 
@@ -229,14 +229,14 @@ function App() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv,.xlsx,.xls,.tsv,.json"
+                  accept=".csv,.xlsx,.xls,.tsv,.json,.parquet,.xml,.db,.sqlite,.sqlite3,.pdf,.ods,.feather,.pkl,.pickle"
                   style={{ display: 'none' }}
                   onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
                 />
                 <div className="upload-icon">📂</div>
                 <h3>Drop your file here</h3>
                 <p>or click to browse</p>
-                <span className="upload-hint">CSV · Excel (.xlsx) · TSV · JSON</span>
+                <span className="upload-hint">CSV · Excel · TSV · JSON · PDF · Parquet · XML · SQLite · ODS · Feather</span>
               </div>
             )}
 
