@@ -15,7 +15,7 @@
 
 ## 📸 Demo
 
-![AI Data Analyst — Sales Rep Performance Heatmap](demo.png)
+![AI Data Analyst — Sales Rep Performance Heatmap](Heatmap.png)
 
 > *Asking "Show me the sales rep performance heatmap by region" generates an interactive heatmap instantly — no code required.*
 
