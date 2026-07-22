@@ -1,0 +1,11 @@
+streamlit
+pandas
+matplotlib
+groq==0.13.0
+openpyxl==3.1.2
+requests
+pyarrow
+pdfplumber
+odfpy
+lxml
+seaborn
