@@ -3,24 +3,15 @@
 Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask questions in plain English. Get instant charts & insights.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://askthedata-ai.streamlit.app/)
-[![Backend](https://img.shields.io/badge/backend-online-blue)](https://ai-data-analyst-fdcx.onrender.com)
+[![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)](https://askthedata-ai.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml)
-[![Watch Demo Video](https://img.shields.io/badge/watch-demo%20video-red)](https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43)
 
 ## 📸 Demo
 
-![AI Data Analyst highlight reel](assets/ai-data-analyst-highlight.gif)
+![AI Data Analyst demo — sales rep performance heatmap by region](assets/ai-data-analyst-demo.png)
 
-![AI Data Analyst — chat summary view](assets/ai-data-analyst-summary.png)
-
-![AI Data Analyst — Sales Rep Performance Heatmap](assets/ai-data-analyst-chart.png)
-
-Asking *"Show me the sales rep performance heatmap by region"* generates an interactive heatmap instantly — no code required.
-
-🎬 **Full walkthrough:**
-
-https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
+Asking *"Show me the sales rep performance heatmap by region"* generates an interactive heatmap instantly — no code required. The AI writes the pandas/seaborn code, runs it, and explains what the results mean.
 
 ## ✨ Features
 
@@ -30,7 +21,7 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 | 💬 Natural language queries | Ask questions the way you'd ask a colleague |
 | 📊 Auto-generated charts | Bar, line, scatter, heatmap, and more |
 | 🧠 Session memory | Follow-up questions build on previous answers |
-| ⚡ Fast inference | Powered by Groq's free Llama 3.3 70B |
+| ⚡ Fast inference | Powered by Groq's LPU hardware |
 | 🆓 100% free to run | No paid API keys required |
 
 ## 📂 Supported File Formats
@@ -46,26 +37,26 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 | OpenDocument Spreadsheet | `.ods` |
 | Feather | `.feather` |
 
-## 🌐 Live Links
+## 🌐 Live Demo
 
-| Service | URL |
-|---|---|
-| App (Streamlit) | [askthedata-ai.streamlit.app](https://askthedata-ai.streamlit.app/) |
-| Backend API | [ai-data-analyst-fdcx.onrender.com](https://ai-data-analyst-fdcx.onrender.com) |
-
-⏳ **Note:** The Render backend runs on the free tier and may take 30–60 seconds to wake up after a period of inactivity.
+**[askthedata-ai.streamlit.app](https://askthedata-ai.streamlit.app/)** — single-service Streamlit app, no backend wake-up delay.
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React / Streamlit |
-| Backend | FastAPI, Python |
-| AI Model | Groq API — Llama 3.3 70B |
-| Data Processing | pandas, matplotlib |
-| Hosting | Streamlit Community Cloud · Vercel · Render |
+| App | Streamlit |
+| AI Model | Groq API — `openai/gpt-oss-120b` |
+| Data Processing | pandas, matplotlib, seaborn |
+| Hosting | Streamlit Community Cloud |
 
-## 🚀 Local Setup (Windows)
+## 🔄 Why Streamlit over FastAPI + React?
+
+This project originally shipped as a FastAPI backend + React frontend, deployed on Render + Vercel. That setup meant two services to keep alive, a keep-alive ping workaround for Render's free-tier cold starts, and CORS/deployment coordination across two platforms for a single-user data tool that didn't need it.
+
+Streamlit collapses that into one file, one deployment target, and zero cold-start delay — a better fit for the actual use case. The legacy code is kept for reference (see below) but is no longer the deployed path.
+
+## 🚀 Local Setup
 
 ### Prerequisites
 
@@ -73,85 +64,54 @@ Get a free Groq API key — no credit card needed:
 
 1. Sign up at [console.groq.com](https://console.groq.com)
 2. Go to **API Keys** → **Create API Key**
-3. Copy it — you'll need it in Step 2
 
-### Step 1 — Extract & Open
-
-Extract `ai-data-analyst.zip` anywhere, then open that folder in VS Code.
-
-### Step 2 — Backend
-
-Open a PowerShell terminal and run each line separately:
+### Run it
 
 ```powershell
-cd backend
+git clone https://github.com/ayush-s-tomar/ai-data-analyst.git
+cd ai-data-analyst/streamlit_app
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env
 ```
 
-Open `.env` and set your key:
+Create `.streamlit/secrets.toml` inside `streamlit_app/`:
 
-```
-GROQ_API_KEY=gsk_your_key_here
+```toml
+GROQ_API_KEY = "gsk_your_key_here"
 ```
 
-Start the server:
+Start the app:
 
 ```powershell
-uvicorn main:app --reload --port 8000
+streamlit run streamlit_app.py
 ```
 
-✅ Backend running at `http://localhost:8000`
+✅ App running at `http://localhost:8501`
 
-### Step 3 — Frontend
-
-Open a new terminal tab and run:
-
-```powershell
-cd frontend
-npm install
-npm start
-```
-
-✅ App running at `http://localhost:3000`
-
-## ☁️ Free Production Deployment
-
-### Backend → Render.com
+## ☁️ Deployment (Streamlit Community Cloud)
 
 1. Push your project to GitHub
-2. Render → New Web Service → connect your repo
-3. Set Root Directory to `backend`
-4. Build command: `pip install -r requirements.txt`
-5. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. Add environment variable: `GROQ_API_KEY = your key`
-7. Deploy → copy your URL (e.g. `https://your-app.onrender.com`)
-
-### App → Streamlit Community Cloud
-
-1. Streamlit Cloud → New app → connect the same repo
-2. Set entry point to `streamlit_app/`
-3. Add secret: `GROQ_API_KEY = your key`
-4. Deploy
+2. Streamlit Cloud → New app → connect your repo
+3. Set entry point to `streamlit_app/streamlit_app.py`
+4. Add secret: `GROQ_API_KEY = your key`
+5. Deploy
 
 ## 📂 Project Structure
 
 ```
 ai-data-analyst/
-├── backend/
-│   ├── main.py               # FastAPI app & Groq integration
+├── streamlit_app/
+│   ├── streamlit_app.py      # Main app — file parsing, Groq integration, UI
 │   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── App.js            # Main React component
-│   │   └── App.css
-│   └── package.json
-├── streamlit_app/            # Single-service Streamlit deployment
-└── render.yaml                # Render deployment config
+│   └── .streamlit/           # secrets.toml (gitignored)
+├── legacy/
+│   ├── backend/               # Archived FastAPI backend (not deployed)
+│   └── frontend/              # Archived React frontend (not deployed)
+└── assets/                    # Demo images and screenshots
 ```
+
+> `backend/` and `frontend/` are archived under `legacy/` for reference only — see [`legacy/README.md`](legacy/README.md) for why they were retired. They are not maintained and not part of the active deployment.
 
 ## 💡 Example Prompts
 
