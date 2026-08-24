@@ -17,7 +17,7 @@ from groq import Groq
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(page_title="AI Data Analyst", page_icon="📊", layout="wide")
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-120b"
 SUPPORTED_EXTENSIONS = [
     '.csv', '.xlsx', '.xls', '.tsv', '.json',
     '.parquet', '.xml', '.db', '.sqlite', '.sqlite3',
