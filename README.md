@@ -13,6 +13,12 @@ Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask
 
 Asking *"Show me the sales rep performance heatmap by region"* generates an interactive heatmap instantly — no code required. The AI writes the pandas/seaborn code, runs it, and explains what the results mean.
 
+![AI Data Analyst highlight reel](assets/ai-data-analyst-highlight.gif)
+
+🎬 **Full walkthrough:**
+
+https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
+
 ## ✨ Features
 
 | Feature | Description |
@@ -36,6 +42,8 @@ Asking *"Show me the sales rep performance heatmap by region"* generates an inte
 | SQLite | `.db`, `.sqlite` |
 | OpenDocument Spreadsheet | `.ods` |
 | Feather | `.feather` |
+| TSV | `.tsv` |
+| JSON | `.json` |
 
 ## 🌐 Live Demo
 
