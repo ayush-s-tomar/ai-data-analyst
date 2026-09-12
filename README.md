@@ -7,17 +7,33 @@ Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml)
 
+**TL;DR**
+- 💬 **Ask your data questions in plain English** — the AI writes and runs the actual pandas/seaborn code, then explains the result, instead of returning a canned chart type.
+- 🔁 **Migrated for a real reason, not a rewrite for its own sake** — moved off FastAPI + React (Render + Vercel) after Render's free tier kept sleeping monthly; now one Streamlit file, one deploy target, zero cold-start delay (see [Why Streamlit](#-why-streamlit-over-fastapi--react)).
+- 📁 **10 file formats, zero conversion step** — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, Feather, TSV, JSON all drag-and-drop straight in.
+- 🆓 **Genuinely free to run** — Groq's free tier covers inference, Streamlit Cloud covers hosting, no paid key needed anywhere in the stack.
+
+---
+
+## 📚 Contents
+
+[Demo](#-demo) · [Features](#-features) · [Supported Formats](#-supported-file-formats) · [Tech Stack](#️-tech-stack) · [Why Streamlit](#-why-streamlit-over-fastapi--react) · [Local Setup](#-local-setup) · [Deployment](#️-deployment-streamlit-community-cloud) · [Project Structure](#-project-structure) · [Limitations](#️-limitations) · [Roadmap](#️-roadmap) · [License](#-license)
+
+---
+
 ## 📸 Demo
 
 ![AI Data Analyst demo — sales rep performance heatmap by region](assets/ai-data-analyst-demo.png)
 
 Asking *"Show me the sales rep performance heatmap by region"* generates an interactive heatmap instantly — no code required. The AI writes the pandas/seaborn code, runs it, and explains what the results mean.
 
-![AI Data Analyst highlight reel](assets/ai-data-analyst-highlight.gif)
+![AI Data Analyst highlight reel showing upload, query, and chart generation](assets/ai-data-analyst-highlight.gif)
 
 🎬 **Full walkthrough:**
 
 https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
+
+---
 
 ## ✨ Features
 
@@ -25,10 +41,12 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 |---|---|
 | 📁 Multi-format upload | Drag and drop CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather — no setup, no conversion |
 | 💬 Natural language queries | Ask questions the way you'd ask a colleague |
-| 📊 Auto-generated charts | Bar, line, scatter, heatmap, and more |
+| 📊 Auto-generated charts | Bar, line, scatter, heatmap, and more, from AI-written pandas/seaborn code |
 | 🧠 Session memory | Follow-up questions build on previous answers |
 | ⚡ Fast inference | Powered by Groq's LPU hardware |
 | 🆓 100% free to run | No paid API keys required |
+
+---
 
 ## 📂 Supported File Formats
 
@@ -45,9 +63,13 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 | TSV | `.tsv` |
 | JSON | `.json` |
 
+---
+
 ## 🌐 Live Demo
 
 **[askthedata-ai.streamlit.app](https://askthedata-ai.streamlit.app/)** — single-service Streamlit app, no backend wake-up delay.
+
+---
 
 ## 🛠️ Tech Stack
 
@@ -58,11 +80,15 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 | Data Processing | pandas, matplotlib, seaborn |
 | Hosting | Streamlit Community Cloud |
 
+---
+
 ## 🔄 Why Streamlit over FastAPI + React?
 
 This project originally shipped as a FastAPI backend + React frontend, deployed on Render + Vercel. That setup meant two services to keep alive, a keep-alive ping workaround for Render's free-tier cold starts, and CORS/deployment coordination across two platforms for a single-user data tool that didn't need it.
 
-Streamlit collapses that into one file, one deployment target, and zero cold-start delay — a better fit for the actual use case. The legacy code is kept for reference (see below) but is no longer the deployed path.
+Streamlit collapses that into one file, one deployment target, and zero cold-start delay — a better fit for the actual use case. The legacy code is kept for reference (see [Project Structure](#-project-structure)) but is no longer the deployed path.
+
+---
 
 ## 🚀 Local Setup
 
@@ -97,6 +123,8 @@ streamlit run streamlit_app.py
 
 ✅ App running at `http://localhost:8501`
 
+---
+
 ## ☁️ Deployment (Streamlit Community Cloud)
 
 1. Push your project to GitHub
@@ -104,6 +132,8 @@ streamlit run streamlit_app.py
 3. Set entry point to `streamlit_app/streamlit_app.py`
 4. Add secret: `GROQ_API_KEY = your key`
 5. Deploy
+
+---
 
 ## 📂 Project Structure
 
@@ -121,6 +151,8 @@ ai-data-analyst/
 
 > `backend/` and `frontend/` are archived under `legacy/` for reference only — see [`legacy/README.md`](legacy/README.md) for why they were retired. They are not maintained and not part of the active deployment.
 
+---
+
 ## 💡 Example Prompts
 
 Try asking things like:
@@ -130,6 +162,25 @@ Try asking things like:
 - "Which product performs best by units sold?"
 - "Compare customer ratings across segments"
 - "Show me the sales rep performance heatmap by region"
+
+---
+
+## ⚠️ Limitations
+
+- **Single-user, no auth.** The app runs AI-generated pandas/matplotlib code against whatever file you upload in the current session — it's built as a personal analysis tool, not a multi-tenant service, so it doesn't include the sandboxing or per-user isolation a public multi-user deployment of "run AI-written code" would need.
+- **No persistence.** Uploaded data and session memory live only for the current browser session — nothing is saved between visits.
+- Best suited for exploratory analysis on datasets that fit comfortably in memory; very large files may be slow to parse on the free Streamlit Cloud tier.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Downloadable chart exports (PNG/SVG) directly from the chat
+- [ ] Multi-file sessions (join or compare across two uploads)
+- [ ] Saved query history across sessions
+- [ ] Basic auth for a shareable multi-user deployment
+
+---
 
 ## 📄 License
 
