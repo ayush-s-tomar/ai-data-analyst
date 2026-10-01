@@ -1,23 +1,39 @@
 # 🤖 AI Data Analyst
 
-Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask questions in plain English. Get instant charts & insights.
+**Upload your data. Ask questions in plain English. Get charts, analysis, and insights instantly.**
+
+AI Data Analyst is an interactive data-analysis tool that lets you upload datasets in multiple formats and explore them using natural-language questions. Instead of returning canned chart types, the AI generates and executes the **actual pandas/matplotlib/seaborn code** needed to answer your question, then explains the result.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://askthedata-ai.streamlit.app/)
 [![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)](https://askthedata-ai.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/ai-data-analyst/actions/workflows/ci.yml)
 
-**TL;DR**
-- 💬 **Ask your data questions in plain English** — the AI writes and runs the actual pandas/seaborn code, then explains the result, instead of returning a canned chart type.
-- 🔁 **Migrated for a real reason, not a rewrite for its own sake** — moved off FastAPI + React (Render + Vercel) after Render's free tier kept sleeping monthly; now one Streamlit file, one deploy target, zero cold-start delay (see [Why Streamlit](#-why-streamlit-over-fastapi--react)).
-- 📁 **10 file formats, zero conversion step** — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, Feather, TSV, JSON all drag-and-drop straight in.
-- 🆓 **Genuinely free to run** — Groq's free tier covers inference, Streamlit Cloud covers hosting, no paid key needed anywhere in the stack.
+> **TL;DR**
+> - 💬 **Ask questions in plain English** — the AI writes and runs the pandas/seaborn code required to answer them.
+> - 📊 **Generate charts automatically** — get bar charts, line charts, scatter plots, heatmaps, and more from natural-language prompts.
+> - 📁 **10 file formats supported** — upload CSV, Excel, PDF, Parquet, XML, SQLite, ODS, Feather, TSV, or JSON directly.
+> - 🧠 **Follow-up questions** — session memory lets you build on previous analysis.
+> - ⚡ **Fast inference** — powered by Groq's LPU infrastructure.
+> - 🆓 **Free to run** — Groq's free tier provides inference and Streamlit Community Cloud provides hosting.
 
 ---
 
 ## 📚 Contents
 
-[Demo](#-demo) · [Features](#-features) · [Supported Formats](#-supported-file-formats) · [Tech Stack](#️-tech-stack) · [Why Streamlit](#-why-streamlit-over-fastapi--react) · [Local Setup](#-local-setup) · [Deployment](#️-deployment-streamlit-community-cloud) · [Project Structure](#-project-structure) · [Limitations](#️-limitations) · [Roadmap](#️-roadmap) · [License](#-license)
+- [Demo](#-demo)
+- [Features](#-features)
+- [Supported File Formats](#-supported-file-formats)
+- [Live Demo](#-live-demo)
+- [Tech Stack](#️-tech-stack)
+- [Why Streamlit over FastAPI + React?](#-why-streamlit-over-fastapi--react)
+- [Local Setup](#-local-setup)
+- [Deployment](#️-deployment-streamlit-community-cloud)
+- [Project Structure](#-project-structure)
+- [Example Prompts](#-example-prompts)
+- [Limitations](#️-limitations)
+- [Roadmap](#-roadmap)
+- [License](#-license)
 
 ---
 
@@ -25,13 +41,17 @@ Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask
 
 ![AI Data Analyst demo — sales rep performance heatmap by region](assets/ai-data-analyst-demo.png)
 
-Asking *"Show me the sales rep performance heatmap by region"* generates an interactive heatmap instantly — no code required. The AI writes the pandas/seaborn code, runs it, and explains what the results mean.
+Ask a question such as:
+
+> **"Show me the sales rep performance heatmap by region."**
+
+The AI determines the required analysis, generates the corresponding pandas/seaborn code, executes it, and presents the resulting visualization and explanation — all without writing code yourself.
 
 ![AI Data Analyst highlight reel showing upload, query, and chart generation](assets/ai-data-analyst-highlight.gif)
 
-🎬 **Full walkthrough:**
+🎬 **Full walkthrough**
 
-https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
+[Watch the full demo](https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43)
 
 ---
 
@@ -39,18 +59,19 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 
 | Feature | Description |
 |---|---|
-| 📁 Multi-format upload | Drag and drop CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather — no setup, no conversion |
-| 💬 Natural language queries | Ask questions the way you'd ask a colleague |
-| 📊 Auto-generated charts | Bar, line, scatter, heatmap, and more, from AI-written pandas/seaborn code |
-| 🧠 Session memory | Follow-up questions build on previous answers |
-| ⚡ Fast inference | Powered by Groq's LPU hardware |
-| 🆓 100% free to run | No paid API keys required |
+| 📁 **Multi-format upload** | Upload CSV, Excel, PDF, Parquet, XML, SQLite, ODS, Feather, TSV, or JSON files directly |
+| 💬 **Natural-language queries** | Ask questions about your data the same way you'd ask a colleague |
+| 📊 **Automatic visualizations** | Generate bar charts, line charts, scatter plots, heatmaps, and other visualizations |
+| 🧠 **Session memory** | Ask follow-up questions that build on previous analysis |
+| 🐍 **AI-generated code** | The AI writes and executes the pandas/matplotlib/seaborn code needed for the requested analysis |
+| ⚡ **Fast inference** | Powered by Groq's LPU infrastructure |
+| 🆓 **Free to run** | Uses Groq's free tier and Streamlit Community Cloud |
 
 ---
 
 ## 📂 Supported File Formats
 
-| Format | Extension |
+| Format | Extensions |
 |---|---|
 | CSV | `.csv` |
 | Excel | `.xlsx`, `.xls` |
@@ -63,11 +84,15 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 | TSV | `.tsv` |
 | JSON | `.json` |
 
+No manual conversion is required — upload the file and start asking questions.
+
 ---
 
 ## 🌐 Live Demo
 
-**[askthedata-ai.streamlit.app](https://askthedata-ai.streamlit.app/)** — single-service Streamlit app, no backend wake-up delay.
+### [Try AI Data Analyst →](https://askthedata-ai.streamlit.app/)
+
+The current version runs as a single Streamlit application, keeping the deployment simple and avoiding the separate frontend/backend architecture used by the earlier version.
 
 ---
 
@@ -75,18 +100,36 @@ https://github.com/user-attachments/assets/8920ab9e-936d-456d-b58d-496543618e43
 
 | Layer | Technology |
 |---|---|
-| App | Streamlit |
-| AI Model | Groq API — `openai/gpt-oss-120b` |
-| Data Processing | pandas, matplotlib, seaborn |
-| Hosting | Streamlit Community Cloud |
+| **Application** | Streamlit |
+| **AI Model** | Groq API — `openai/gpt-oss-120b` |
+| **Data Processing** | pandas |
+| **Visualization** | matplotlib, seaborn |
+| **Hosting** | Streamlit Community Cloud |
+| **CI** | GitHub Actions |
 
 ---
 
 ## 🔄 Why Streamlit over FastAPI + React?
 
-This project originally shipped as a FastAPI backend + React frontend, deployed on Render + Vercel. That setup meant two services to keep alive, a keep-alive ping workaround for Render's free-tier cold starts, and CORS/deployment coordination across two platforms for a single-user data tool that didn't need it.
+The project originally used a **FastAPI backend + React frontend**, deployed separately on Render and Vercel.
 
-Streamlit collapses that into one file, one deployment target, and zero cold-start delay — a better fit for the actual use case. The legacy code is kept for reference (see [Project Structure](#-project-structure)) but is no longer the deployed path.
+That architecture introduced additional operational overhead:
+
+- Two separate services to deploy and maintain
+- Render free-tier sleep/cold-start behavior
+- Keep-alive workarounds
+- CORS configuration
+- Coordination between two deployment platforms
+
+For a lightweight, single-user data-analysis application, that complexity wasn't necessary.
+
+The application was therefore migrated to **Streamlit**, which brings the UI, file processing, AI integration, and visualization workflow into a single application.
+
+### The result
+
+**One application → one deployment target → simpler maintenance.**
+
+The original FastAPI and React implementation remains available under [`legacy/`](legacy/) for reference.
 
 ---
 
@@ -94,94 +137,14 @@ Streamlit collapses that into one file, one deployment target, and zero cold-sta
 
 ### Prerequisites
 
-Get a free Groq API key — no credit card needed:
+You'll need a free **Groq API key**.
 
-1. Sign up at [console.groq.com](https://console.groq.com)
-2. Go to **API Keys** → **Create API Key**
+1. Create an account at [console.groq.com](https://console.groq.com/)
+2. Open **API Keys**
+3. Create a new API key
 
-### Run it
+### 1. Clone the repository
 
 ```powershell
 git clone https://github.com/ayush-s-tomar/ai-data-analyst.git
 cd ai-data-analyst/streamlit_app
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Create `.streamlit/secrets.toml` inside `streamlit_app/`:
-
-```toml
-GROQ_API_KEY = "gsk_your_key_here"
-```
-
-Start the app:
-
-```powershell
-streamlit run streamlit_app.py
-```
-
-✅ App running at `http://localhost:8501`
-
----
-
-## ☁️ Deployment (Streamlit Community Cloud)
-
-1. Push your project to GitHub
-2. Streamlit Cloud → New app → connect your repo
-3. Set entry point to `streamlit_app/streamlit_app.py`
-4. Add secret: `GROQ_API_KEY = your key`
-5. Deploy
-
----
-
-## 📂 Project Structure
-
-```
-ai-data-analyst/
-├── streamlit_app/
-│   ├── streamlit_app.py      # Main app — file parsing, Groq integration, UI
-│   ├── requirements.txt
-│   └── .streamlit/           # secrets.toml (gitignored)
-├── legacy/
-│   ├── backend/               # Archived FastAPI backend (not deployed)
-│   └── frontend/              # Archived React frontend (not deployed)
-└── assets/                    # Demo images and screenshots
-```
-
-> `backend/` and `frontend/` are archived under `legacy/` for reference only — see [`legacy/README.md`](legacy/README.md) for why they were retired. They are not maintained and not part of the active deployment.
-
----
-
-## 💡 Example Prompts
-
-Try asking things like:
-
-- "Show me a bar chart of sales by region"
-- "What's the revenue trend over time?"
-- "Which product performs best by units sold?"
-- "Compare customer ratings across segments"
-- "Show me the sales rep performance heatmap by region"
-
----
-
-## ⚠️ Limitations
-
-- **Single-user, no auth.** The app runs AI-generated pandas/matplotlib code against whatever file you upload in the current session — it's built as a personal analysis tool, not a multi-tenant service, so it doesn't include the sandboxing or per-user isolation a public multi-user deployment of "run AI-written code" would need.
-- **No persistence.** Uploaded data and session memory live only for the current browser session — nothing is saved between visits.
-- Best suited for exploratory analysis on datasets that fit comfortably in memory; very large files may be slow to parse on the free Streamlit Cloud tier.
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Downloadable chart exports (PNG/SVG) directly from the chat
-- [ ] Multi-file sessions (join or compare across two uploads)
-- [ ] Saved query history across sessions
-- [ ] Basic auth for a shareable multi-user deployment
-
----
-
-## 📄 License
-
-MIT — free to use, modify, and deploy.
