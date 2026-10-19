@@ -1,5 +1,13 @@
 # 🤖 AI Data Analyst
 
+<!-- TODO 1 (check first): the public demo executes LLM-written code in the app's own process. Open the live
+demo and ask it to print os.environ or st.secrets. If your GROQ_API_KEY appears, rotate the key in the Groq
+console and wire in streamlit_app/safe_exec.py (AST allow-list + restricted builtins) in place of the
+current exec call. It is defense in depth, not a true sandbox; a subprocess with a time limit is the next step.
+TODO 2: 'Not deployed' for legacy/ may be wrong: the old Vercel project is still serving its last successful
+build, and the published portfolio-mcp-server package links that Vercel URL as this project's demo.
+Update that data and publish a new version before deleting or disconnecting the Vercel project. -->
+
 Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask questions in plain English. Get instant charts & insights.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://askthedata-ai.streamlit.app/)
@@ -167,7 +175,8 @@ Try asking things like:
 
 ## ⚠️ Limitations
 
-- **Single-user, no auth.** The app runs AI-generated pandas/matplotlib code against whatever file you upload in the current session — it's built as a personal analysis tool, not a multi-tenant service, so it doesn't include the sandboxing or per-user isolation a public multi-user deployment of "run AI-written code" would need.
+- **Generated code runs inside the app's own process, with no sandbox.** The hosted demo is public and uses a shared Groq API key, so anyone who opens it can ask the model to write code that runs server-side with access to the app's environment. It's a personal analysis tool, not a multi-tenant service: don't upload sensitive data to the public demo, and treat the demo's API key as reachable by anyone who can prompt it (hardening is the first item on the [Roadmap](#️-roadmap)).
+- **No authentication.** Single-user by design; there's no login and no per-user isolation.
 - **No persistence.** Uploaded data and session memory live only for the current browser session — nothing is saved between visits.
 - Best suited for exploratory analysis on datasets that fit comfortably in memory; very large files may be slow to parse on the free Streamlit Cloud tier.
 
@@ -175,6 +184,7 @@ Try asking things like:
 
 ## 🗺️ Roadmap
 
+- [ ] Restrict what AI-generated code can do (import allow-list, blocked file and secret access), then run it in an isolated subprocess with a time limit
 - [ ] Downloadable chart exports (PNG/SVG) directly from the chat
 - [ ] Multi-file sessions (join or compare across two uploads)
 - [ ] Saved query history across sessions
