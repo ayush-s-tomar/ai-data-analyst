@@ -1,6 +1,19 @@
-﻿.env
-venv/
-node_modules/
-__pycache__/
-frontend/node_modules/
+# Secrets - never commit these
+.env
+.env.*
+!.env.example
 **/.streamlit/secrets.toml
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node (legacy frontend)
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
