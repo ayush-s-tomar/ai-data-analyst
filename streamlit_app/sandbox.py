@@ -36,7 +36,7 @@ RESULT_MARKER = "@@SANDBOX_RESULT@@"
 ALLOWED_IMPORTS = {
     "pandas", "numpy", "matplotlib", "seaborn",
     "math", "statistics", "datetime", "collections", "itertools",
-    "functools", "re", "string", "decimal", "fractions", "calendar",
+    "functools", "re", "decimal", "fractions", "calendar",
     "textwrap", "warnings",
 }
 
@@ -71,6 +71,15 @@ SAFE_BUILTIN_NAMES = [
     "StopIteration", "RuntimeError", "NotImplementedError",
     "True", "False", "None",
 ]
+
+
+BLOCKED_ATTR_PREFIXES = ("gi_", "cr_", "ag_", "f_", "tb_", "co_")
+BLOCKED_ATTRS |= {
+    "to_json", "to_xml", "to_latex", "to_markdown", "dump", "dumps",
+    "print_figure", "print_png", "print_pdf", "print_svg", "print_jpg",
+    "print_ps", "print_eps", "write", "write_text", "write_bytes",
+    "get_field", "vformat", "Formatter",
+}
 
 
 class CodeRejected(Exception):
@@ -108,6 +117,8 @@ def validate_code(code: str) -> ast.AST:
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("_"):
                 raise CodeRejected(f"access to private attribute '{node.attr}' is not allowed")
+            if node.attr.startswith(BLOCKED_ATTR_PREFIXES):
+                raise CodeRejected(f"use of '.{node.attr}' is not allowed")
             if node.attr in BLOCKED_ATTRS or node.attr.startswith("read_"):
                 raise CodeRejected(f"use of '.{node.attr}' is not allowed")
         elif isinstance(node, ast.Constant):
@@ -173,6 +184,7 @@ def _limit_resources(timeout: int) -> None:
         import resource
         resource.setrlimit(resource.RLIMIT_CPU, (timeout + 2, timeout + 4))
         resource.setrlimit(resource.RLIMIT_FSIZE, (20_000_000, 20_000_000))
+        resource.setrlimit(resource.RLIMIT_AS, (1_500_000_000, 1_500_000_000))
     except Exception:  # noqa: BLE001 - not available on Windows
         pass
 
@@ -180,7 +192,7 @@ def _limit_resources(timeout: int) -> None:
 def _worker_main() -> None:
     payload = pickle.loads(sys.stdin.buffer.read())  # produced by our own parent process
     _limit_resources(int(payload.get("timeout", DEFAULT_TIMEOUT_SECONDS)))
-    keep = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "HOME", "MPLBACKEND", "MPLCONFIGDIR", "PYTHONIOENCODING"}
+    keep = {"PATH", "SYSTEMROOT", "TEMP", "TMP", "HOME", "MPLBACKEND", "MPLCONFIGDIR", "PYTHONIOENCODING", "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS"}
     for key in list(os.environ):
         if key not in keep:
             del os.environ[key]
@@ -198,6 +210,8 @@ def _clean_env(workdir: str) -> dict:
         "TEMP": workdir,
         "TMP": workdir,
         "PYTHONIOENCODING": "utf-8",
+        "OPENBLAS_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
     }
     if os.environ.get("SYSTEMROOT"):
         env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
