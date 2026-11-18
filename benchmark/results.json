@@ -1,0 +1,212 @@
+[
+  {
+    "dataset": "sales",
+    "question": "What is the total revenue?",
+    "expected": 1229000.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "Which region has the highest total revenue?",
+    "expected": "West",
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "What is the average units per order?",
+    "expected": 9.57,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "How many orders were for Laptop?",
+    "expected": 49.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "What is the largest revenue from a single order?",
+    "expected": 21600.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "Which product sold the most units in total?",
+    "expected": "Monitor",
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "What is the total revenue for the West region?",
+    "expected": 309500.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "How many distinct products are there?",
+    "expected": 4.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "What is the median revenue per order?",
+    "expected": 4500.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "sales",
+    "question": "What is the average customer age?",
+    "expected": null,
+    "status": "pass",
+    "note": "refused"
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the average salary?",
+    "expected": 86135.31666666667,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "Which department has the highest average salary?",
+    "expected": "Sales",
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "How many employees have a rating of 4 or higher?",
+    "expected": 46.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the maximum years_experience?",
+    "expected": 20.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the total salary of the Engineering department?",
+    "expected": 2744220.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "How many employees are there in total?",
+    "expected": 120.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the correlation between salary and years_experience?",
+    "expected": -0.04276726268347193,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "Which department has the most employees?",
+    "expected": "Finance",
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the standard deviation of salary?",
+    "expected": 35701.07821124032,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "hr",
+    "question": "What is the average bonus?",
+    "expected": null,
+    "status": "pass",
+    "note": "refused"
+  },
+  {
+    "dataset": "students",
+    "question": "What is the average math score?",
+    "expected": 69.86666666666666,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "Which class has the highest average science score?",
+    "expected": "B",
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "How many students have attendance below 75?",
+    "expected": 63.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "What is the highest math score?",
+    "expected": 100.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "What is the average attendance?",
+    "expected": 78.02666666666667,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "How many students are there?",
+    "expected": 150.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "What is the correlation between math and science?",
+    "expected": 0.04723520173005371,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "What is the median science score?",
+    "expected": 66.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "How many students are in class A?",
+    "expected": 56.0,
+    "status": "pass",
+    "note": ""
+  },
+  {
+    "dataset": "students",
+    "question": "What is the average age of the students?",
+    "expected": null,
+    "status": "pass",
+    "note": "refused"
+  }
+]

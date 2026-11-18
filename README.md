@@ -1,6 +1,6 @@
 # 🤖 AI Data Analyst
 
-Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, or Feather. Ask questions in plain English. Get instant charts & insights.
+Upload your data — CSV, Excel, PDF, Parquet, XML, SQLite, ODS, Feather, TSV, or JSON. Ask questions in plain English. Get instant charts & insights.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://askthedata-ai.streamlit.app/)
 [![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)](https://askthedata-ai.streamlit.app/)
