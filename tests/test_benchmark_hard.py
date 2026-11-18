@@ -16,10 +16,11 @@ def test_hard_ground_truths_compute():
 
 def test_hard_tier_shape():
     assert len(HARD_QUESTIONS) == 21
-    assert sum(fn is None for _d, _q, fn in HARD_QUESTIONS) == 5
+    assert sum(fn is None for _d, _q, fn in HARD_QUESTIONS) == 4
 
 
 def test_strict_matcher_uses_last_line_only():
     assert strict_match(60.0, "table\n10\n20\nanswer: 60")
     assert not strict_match(60.0, "answer: 60\na\nb\nc")
     assert strict_match("West", "x\nTop region: West")
+
