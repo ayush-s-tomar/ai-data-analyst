@@ -17,3 +17,5 @@ node_modules/
 # OS / editor
 .DS_Store
 Thumbs.db
+benchmark/results.json
+benchmark/results_hard.json
