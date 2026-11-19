@@ -19,3 +19,6 @@ node_modules/
 Thumbs.db
 benchmark/results.json
 benchmark/results_hard.json
+
+.coverage
+htmlcov/

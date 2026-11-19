@@ -186,6 +186,22 @@ Try asking things like:
 - "Compare customer ratings across segments"
 - "Show me the sales rep performance heatmap by region"
 
+## Benchmark
+
+Known-answer questions are run through the real pipeline (prompt, generated code, sandbox, output) and checked
+against pandas ground truth. Run it with `python -m benchmark.run_benchmark` (basic) or `python -m benchmark.run_hard` (hard).
+
+| Tier | Questions | Result |
+|---|---|---|
+| Basic (single-step aggregations, 3 refusals) | 30 | 30/30 |
+| Hard (multi-step, messy data, near-miss refusals, 3 runs each) | 21 | 19/21 questions, 58/63 runs |
+
+How the hard tier was developed: the first run scored 16/21 with a last-line checker. Reviewing the failures showed
+three checker artifacts and two ambiguous questions, so the checker and questions were changed after seeing results.
+The one real model weakness found was inconsistent refusal when a question's premise is missing from the data
+(for example "last year vs this year" on a single year). A prompt rule was added for it. Validation of that rule
+is pending. Datasets are synthetic and each run uses one model (`openai/gpt-oss-120b`).
+
 ## ⚠️ Limitations
 
 - **Containment is not a full sandbox.** Generated code is validated and runs in a separate time-limited process, but that process shares the host with the app. The public demo uses a shared Groq API key, so treat it as a personal analysis tool and don't upload sensitive data.
@@ -202,7 +218,7 @@ Try asking things like:
 - [ ] Multi-file sessions (join or compare across two uploads)
 - [ ] Saved query history across sessions
 - [ ] Basic auth for a shareable multi-user deployment
-- [ ] Accuracy benchmark on known-answer datasets
+- [x] Accuracy benchmark on known-answer datasets
 
 ## 📄 License
 
