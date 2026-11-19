@@ -1,12 +1,13 @@
 """File parsing helpers for AI Data Analyst (no Streamlit imports, so they are unit-testable)."""
 from __future__ import annotations
 
+import csv
 import io
 import json
 import os
 import sqlite3
 import tempfile
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 import pandas as pd
 
@@ -104,9 +105,29 @@ def _read_pdf(contents: bytes) -> pd.DataFrame:
     return pd.DataFrame({"text": [line for line in lines if line.strip()]})
 
 
+def _decode_text(contents: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return contents.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return contents.decode("latin-1")
+
+
+def _read_csv(contents: bytes, sep=None) -> pd.DataFrame:
+    """Decode with fallbacks (utf-8, cp1252, latin-1) and sniff the delimiter when not given."""
+    text = _decode_text(contents)
+    if sep is None:
+        try:
+            sep = csv.Sniffer().sniff(text[:8192], delimiters=",;\t|").delimiter
+        except csv.Error:
+            sep = ","
+    return pd.read_csv(io.StringIO(text), sep=sep)
+
+
 _READERS = {
-    ".csv": lambda c, e: pd.read_csv(io.BytesIO(c)),
-    ".tsv": lambda c, e: pd.read_csv(io.BytesIO(c), sep="\t"),
+    ".csv": lambda c, e: _read_csv(c),
+    ".tsv": lambda c, e: _read_csv(c, "\t"),
     ".xlsx": lambda c, e: pd.read_excel(io.BytesIO(c)),
     ".xls": lambda c, e: pd.read_excel(io.BytesIO(c)),
     ".ods": lambda c, e: pd.read_excel(io.BytesIO(c), engine="odf"),
@@ -138,14 +159,48 @@ def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
     return ensure_unique_columns(df)
 
 
+def data_quality(df: pd.DataFrame) -> dict:
+    """Cheap health check shown to the user before the first question."""
+    nulls = df.isnull().sum()
+    try:
+        duplicates = int(df.duplicated().sum())
+    except TypeError:  # unhashable cells such as lists from JSON
+        duplicates = 0
+    text_numbers = []
+    for column in df.columns:
+        series = df[column]
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            values = series.dropna()
+            if len(values) and pd.to_numeric(values, errors="coerce").notna().mean() > 0.9:
+                text_numbers.append(str(column))
+    return {
+        "rows": int(len(df)),
+        "columns": int(df.shape[1]),
+        "duplicate_rows": duplicates,
+        "missing_cells": int(nulls.sum()),
+        "columns_with_missing": {str(k): int(v) for k, v in nulls[nulls > 0].items()},
+        "numbers_stored_as_text": text_numbers,
+    }
+
+
+def _shorten(frame: pd.DataFrame, max_cols: int = 40, max_chars: int = 60) -> pd.DataFrame:
+    """Cap columns and truncate long text cells so the model prompt stays small."""
+    view = frame.iloc[:, :max_cols].copy()
+    for column in view.columns:
+        series = view[column]
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            view[column] = series.map(lambda v: v[:max_chars] + "..." if isinstance(v, str) and len(v) > max_chars else v)
+    return view
+
+
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40) -> str:
     """Compact text description of a DataFrame to give the model context."""
     info = [
         f"Shape: {df.shape[0]} rows x {df.shape[1]} columns",
         f"\nColumns: {list(df.columns)}",
         f"\nDtypes:\n{df.dtypes.to_string()}",
-        f"\nFirst {min(max_rows, len(df))} rows:\n{df.head(max_rows).to_string()}",
-        f"\nBasic Statistics:\n{df.iloc[:, :max_stat_columns].describe(include='all').to_string()}",
+        f"\nFirst {min(max_rows, len(df))} rows:\n{_shorten(df.head(max_rows)).to_string()}",
+        f"\nBasic Statistics:\n{_shorten(df.iloc[:, :max_stat_columns].describe(include='all')).to_string()}",
     ]
     null_counts = df.isnull().sum()
     if null_counts.any():

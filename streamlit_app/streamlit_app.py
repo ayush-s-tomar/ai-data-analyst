@@ -6,7 +6,8 @@ from groq import Groq
 
 from analyst import (MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, read_file_to_df
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, read_file_to_df
+from limits import FREE_QUESTIONS_PER_SESSION, allowed
 
 # ─────────────────────────────────────────────────────────────
 # Config
@@ -22,7 +23,13 @@ def get_api_key():
     return key or os.environ.get("GROQ_API_KEY")
 
 
-GROQ_API_KEY = get_api_key()
+USER_KEY = st.sidebar.text_input(
+    "Your own Groq API key (optional)", type="password",
+    help="Leave empty to use the shared demo key, which is limited per session.").strip()
+GROQ_API_KEY = USER_KEY or get_api_key()
+USING_OWN_KEY = bool(USER_KEY)
+if "questions_asked" not in st.session_state:
+    st.session_state.questions_asked = 0
 if not GROQ_API_KEY:
     st.error("GROQ_API_KEY is not set. Add it in Streamlit Cloud → App settings → Secrets, "
              "or in .streamlit/secrets.toml when running locally.")
@@ -82,7 +89,7 @@ with col_reset:
 # ─────────────────────────────────────────────────────────────
 # Upload step
 # ─────────────────────────────────────────────────────────────
-if st.session_state.df is None:
+if st.session_state.df is None:  # noqa: C901
     uploaded = st.file_uploader(
         "Drop your file here or click to browse",
         type=[e.lstrip(".") for e in SUPPORTED_EXTENSIONS],
@@ -131,6 +138,17 @@ else:
 
     st.info(f"📄 **{st.session_state.filename}** · {st.session_state.filetype} · "
             f"{len(df):,} rows · {len(df.columns)} cols")
+
+    quality = data_quality(df)
+    with st.expander("Data quality check"):
+        q1, q2, q3 = st.columns(3)
+        q1.metric("Duplicate rows", quality["duplicate_rows"])
+        q2.metric("Missing cells", quality["missing_cells"])
+        q3.metric("Numbers stored as text", len(quality["numbers_stored_as_text"]))
+        if quality["columns_with_missing"]:
+            st.caption("Missing values by column: " + ", ".join(f"{k} ({v})" for k, v in quality["columns_with_missing"].items()))
+        if quality["numbers_stored_as_text"]:
+            st.caption("Columns that look numeric but are text: " + ", ".join(quality["numbers_stored_as_text"]))
 
     sidebar_col, chat_col = st.columns([1, 3])
 
@@ -191,7 +209,12 @@ else:
         pending = st.session_state.pop("pending_question", None)
         final_question = question or pending
 
+        if final_question and not allowed(st.session_state.questions_asked, USING_OWN_KEY):
+            st.warning(f"The shared demo key is limited to {FREE_QUESTIONS_PER_SESSION} questions per session. "
+                       "Paste your own free Groq key in the sidebar to continue.")
+            final_question = None
         if final_question:
+            st.session_state.questions_asked += 1
             history_for_api = [
                 {"role": m["role"], "content": m["content"]}
                 for m in st.session_state.messages

@@ -37,6 +37,9 @@ Rules:
 - Read data only from `df`. There is no file, network or system access. Imports are limited to pandas, numpy, matplotlib, seaborn, math, statistics, datetime and collections.
 - Do not modify `df` in place; work on copies.
 - Never invent numbers. Compute them.
+- If the question needs a time period, category or value that does not appear in the data
+  (for example comparing years when the data covers only one year), reply with CANNOT_ANSWER
+  and name what is missing.
 - If the question cannot be answered from the available columns (for example it names a column that does not exist), reply with exactly one line and no code:
   CANNOT_ANSWER: short reason that names the available columns
 
@@ -67,7 +70,7 @@ class LLMError(Exception):
     """A user-presentable problem talking to the model service."""
 
 
-def chat(client, system: str, messages: list, max_tokens: int = 2000, temperature: float = 0.2) -> str:
+def chat(client, system: str, messages: list, max_tokens: int = 4000, temperature: float = 0.2) -> str:
     payload = [{"role": "system", "content": system}] + messages
     try:
         response = client.chat.completions.create(

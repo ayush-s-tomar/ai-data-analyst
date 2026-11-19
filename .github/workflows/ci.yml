@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -15,8 +15,12 @@ concurrency:
 
 jobs:
   test:
-    name: Lint and tests
-    runs-on: ubuntu-latest
+    name: Lint and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -35,10 +39,10 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Lint (syntax errors and undefined names)
-        run: flake8 streamlit_app tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        run: flake8 streamlit_app tests benchmark --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Lint (style)
-        run: flake8 streamlit_app tests --count --statistics
+        run: flake8 streamlit_app tests benchmark --count --statistics
 
-      - name: Run tests
-        run: python -m pytest -q
+      - name: Run tests with coverage
+        run: python -m pytest -q --cov=streamlit_app --cov-report=term-missing

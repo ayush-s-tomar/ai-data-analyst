@@ -1,3 +1,4 @@
 -r streamlit_app/requirements.txt
 pytest
 flake8
+pytest-cov
