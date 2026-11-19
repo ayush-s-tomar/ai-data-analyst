@@ -70,7 +70,7 @@ class LLMError(Exception):
     """A user-presentable problem talking to the model service."""
 
 
-def chat(client, system: str, messages: list, max_tokens: int = 2000, temperature: float = 0.2) -> str:
+def chat(client, system: str, messages: list, max_tokens: int = 4000, temperature: float = 0.2) -> str:
     payload = [{"role": "system", "content": system}] + messages
     try:
         response = client.chat.completions.create(

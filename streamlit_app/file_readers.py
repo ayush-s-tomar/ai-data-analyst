@@ -183,14 +183,24 @@ def data_quality(df: pd.DataFrame) -> dict:
     }
 
 
+def _shorten(frame: pd.DataFrame, max_cols: int = 40, max_chars: int = 60) -> pd.DataFrame:
+    """Cap columns and truncate long text cells so the model prompt stays small."""
+    view = frame.iloc[:, :max_cols].copy()
+    for column in view.columns:
+        series = view[column]
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            view[column] = series.map(lambda v: v[:max_chars] + "..." if isinstance(v, str) and len(v) > max_chars else v)
+    return view
+
+
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40) -> str:
     """Compact text description of a DataFrame to give the model context."""
     info = [
         f"Shape: {df.shape[0]} rows x {df.shape[1]} columns",
         f"\nColumns: {list(df.columns)}",
         f"\nDtypes:\n{df.dtypes.to_string()}",
-        f"\nFirst {min(max_rows, len(df))} rows:\n{df.head(max_rows).to_string()}",
-        f"\nBasic Statistics:\n{df.iloc[:, :max_stat_columns].describe(include='all').to_string()}",
+        f"\nFirst {min(max_rows, len(df))} rows:\n{_shorten(df.head(max_rows)).to_string()}",
+        f"\nBasic Statistics:\n{_shorten(df.iloc[:, :max_stat_columns].describe(include='all')).to_string()}",
     ]
     null_counts = df.isnull().sum()
     if null_counts.any():
