@@ -6,7 +6,8 @@ from groq import Groq
 
 from analyst import (MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, read_file_to_df
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, list_sources, read_file_to_df, sensitive_columns
+from report import build_report
 from limits import FREE_QUESTIONS_PER_SESSION, allowed
 
 # ─────────────────────────────────────────────────────────────
@@ -100,16 +101,26 @@ if st.session_state.df is None:  # noqa: C901
 
     if uploaded is not None:
         ext = os.path.splitext(uploaded.name)[1].lower()
+        data = uploaded.getvalue()
+        try:
+            sources = list_sources(data, uploaded.name)
+        except Exception:  # noqa: BLE001 - fall back to the default reader
+            sources = []
+        chosen = None
+        if len(sources) > 1:
+            chosen = st.selectbox("This file has several sheets or tables. Choose one:", sources)
+            if not st.button("Load selected"):
+                st.stop()
         with st.spinner("Reading your file..."):
             try:
-                df = read_file_to_df(uploaded.read(), uploaded.name)
+                df = read_file_to_df(data, uploaded.name, source=chosen)
             except Exception as exc:  # noqa: BLE001 - show any parse problem to the user
                 st.error(f"Could not read this file: {exc}")
                 st.stop()
 
         with st.spinner("Analyzing your data..."):
             try:
-                analysis = analyze_dataframe(client, df)
+                analysis = analyze_dataframe(client, df, hidden=sensitive_columns(df))
             except LLMError as exc:
                 analysis = f"Your file loaded, but the automatic summary is unavailable: {exc}"
 
@@ -158,6 +169,13 @@ else:
             st.markdown(f"**{col}**")
             st.caption(f"{df[col].dtype} · {df[col].nunique()} unique")
 
+        hidden = st.multiselect(
+            "Hide values from the AI", list(df.columns), default=sensitive_columns(df),
+            key=f"hidden_{st.session_state.filename}",
+            help="Selected columns keep their names and types in the prompt, but their values are replaced by <hidden>.")
+        if any(m["role"] == "user" for m in st.session_state.messages):
+            st.download_button("Download report (.md)", build_report(st.session_state.filename, st.session_state.messages),
+                               file_name="analysis-report.md", mime="text/markdown")
         st.subheader("Session Memory")
         user_msgs = [m for m in st.session_state.messages if m["role"] == "user"]
         if not user_msgs:
@@ -228,7 +246,7 @@ else:
 
             with st.spinner("Analyzing with memory context..."):
                 try:
-                    result = answer_question(client, final_question, df, history_for_api)
+                    result = answer_question(client, final_question, df, history_for_api, hidden=hidden)
                     st.session_state.messages.append({
                         "role": "assistant", "content": result["content"],
                         "charts": result["charts"], "code_output": result["code_output"],

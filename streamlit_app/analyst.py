@@ -97,7 +97,7 @@ def extract_analysis(text: str) -> str:
     return head or "Computed the answer from your data."
 
 
-def analyze_dataframe(client, df) -> str:
+def analyze_dataframe(client, df, hidden=()) -> str:
     system = "You are an expert data analyst. Be concise, insightful, and use clear markdown formatting."
     user = f"""Analyze this dataset and provide:
 1. A brief summary of what the data contains
@@ -106,7 +106,7 @@ def analyze_dataframe(client, df) -> str:
 4. Suggested analyses to run
 
 Dataset info:
-{df_to_string(df)}"""
+{df_to_string(df, hidden=hidden)}"""
     return chat(client, system, [{"role": "user", "content": user}], max_tokens=1200)
 
 
@@ -122,9 +122,9 @@ def interpret(client, question: str, code: str, run: dict) -> str:
                 [{"role": "user", "content": prompt}], max_tokens=700, temperature=0.1)
 
 
-def answer_question(client, question: str, df, history: list) -> dict:
+def answer_question(client, question: str, df, history: list, hidden=()) -> dict:
     """Return {"content", "charts", "code_output", "code_error", "has_code"}."""
-    system = CODE_SYSTEM_PROMPT.format(summary=df_to_string(df, max_rows=20))
+    system = CODE_SYSTEM_PROMPT.format(summary=df_to_string(df, max_rows=20, hidden=hidden))
     messages = history[-MAX_HISTORY_MESSAGES:] + [{"role": "user", "content": question}]
 
     reply = chat(client, system, messages)
@@ -143,10 +143,12 @@ def answer_question(client, question: str, df, history: list) -> dict:
 
     run = run_user_code(code, df)
 
-    if run["error"]:  # one automatic repair attempt
+    problem = run["error"] or ("" if (run["output"].strip() or run["charts"]) else
+                               "The code ran but printed nothing and drew no chart. Use print() for every result.")
+    if problem:  # one automatic repair attempt
         repair = messages + [
             {"role": "assistant", "content": reply},
-            {"role": "user", "content": "That code failed:\n" + run["error"][:1500]
+            {"role": "user", "content": "That code failed:\n" + problem[:1500]
              + "\nReturn corrected code in the same format."},
         ]
         fixed_reply = chat(client, system, repair)

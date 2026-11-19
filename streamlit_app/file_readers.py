@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import os
+import re
 import sqlite3
 import tempfile
 import defusedxml.ElementTree as ET
@@ -142,7 +143,41 @@ _READERS = {
 }
 
 
-def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
+def _sqlite_read(contents: bytes, ext: str, table=None):
+    """Return (table names, DataFrame of `table` or None)."""
+    tmp_path = None
+    conn = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+        conn = sqlite3.connect(tmp_path)
+        names = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        frame = None
+        if table is not None:
+            if table not in names:
+                raise ValueError(f"Table not found: {table}")
+            frame = pd.read_sql("SELECT * FROM [" + table.replace("]", "]]") + "]", conn)
+        return names, frame
+    finally:
+        if conn is not None:
+            conn.close()
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def list_sources(contents: bytes, filename: str) -> list:
+    """Sheet names (Excel/ODS) or table names (SQLite). Empty list for single-table formats."""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in (".xlsx", ".xls", ".ods"):
+        engine = "odf" if ext == ".ods" else None
+        return list(pd.ExcelFile(io.BytesIO(contents), engine=engine).sheet_names)
+    if ext in (".db", ".sqlite", ".sqlite3"):
+        return _sqlite_read(contents, ext)[0]
+    return []
+
+
+def read_file_to_df(contents: bytes, filename: str, source=None) -> pd.DataFrame:
     """Parse an uploaded file into a DataFrame. Raises ValueError for unsupported/empty files."""
     ext = os.path.splitext(filename)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
@@ -152,7 +187,12 @@ def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
     if len(contents) > MAX_FILE_MB * 1024 * 1024:
         raise ValueError(f"The file is larger than {MAX_FILE_MB} MB")
 
-    df = _READERS[ext](contents, ext)
+    if source is not None and ext in (".xlsx", ".xls", ".ods"):
+        df = pd.read_excel(io.BytesIO(contents), sheet_name=source, engine="odf" if ext == ".ods" else None)
+    elif source is not None and ext in (".db", ".sqlite", ".sqlite3"):
+        df = _sqlite_read(contents, ext, source)[1]
+    else:
+        df = _READERS[ext](contents, ext)
 
     if df.empty:
         raise ValueError("No rows were found in the file")
@@ -193,14 +233,38 @@ def _shorten(frame: pd.DataFrame, max_cols: int = 40, max_chars: int = 60) -> pd
     return view
 
 
-def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40) -> str:
+SENSITIVE_TOKENS = {"email", "phone", "mobile", "aadhaar", "aadhar", "ssn", "password", "passport", "pan", "address", "dob", "iban"}
+
+
+def sensitive_columns(df: pd.DataFrame) -> list:
+    """Columns whose name contains a sensitive word (matched on whole words, so 'company' is safe)."""
+    found = []
+    for column in df.columns:
+        words = set(re.split(r"[^a-z0-9]+", str(column).lower()))
+        if words & SENSITIVE_TOKENS:
+            found.append(column)
+    return found
+
+
+def _mask(df: pd.DataFrame, hidden) -> pd.DataFrame:
+    if not hidden:
+        return df
+    view = df.copy()
+    for column in hidden:
+        if column in view.columns:
+            view[column] = "<hidden>"
+    return view
+
+
+def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40, hidden=()) -> str:
     """Compact text description of a DataFrame to give the model context."""
+    shown = _mask(df, hidden)
     info = [
         f"Shape: {df.shape[0]} rows x {df.shape[1]} columns",
         f"\nColumns: {list(df.columns)}",
         f"\nDtypes:\n{df.dtypes.to_string()}",
-        f"\nFirst {min(max_rows, len(df))} rows:\n{_shorten(df.head(max_rows)).to_string()}",
-        f"\nBasic Statistics:\n{_shorten(df.iloc[:, :max_stat_columns].describe(include='all')).to_string()}",
+        f"\nFirst {min(max_rows, len(df))} rows:\n{_shorten(shown.head(max_rows)).to_string()}",
+        f"\nBasic Statistics:\n{_shorten(shown.iloc[:, :max_stat_columns].describe(include='all')).to_string()}",
     ]
     null_counts = df.isnull().sum()
     if null_counts.any():
