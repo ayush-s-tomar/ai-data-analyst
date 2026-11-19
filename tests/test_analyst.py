@@ -1,6 +1,6 @@
 import pandas as pd
 
-from analyst import MAX_HISTORY_MESSAGES, answer_question, extract_code
+from analyst import MAX_HISTORY_MESSAGES, answer_question, clean_markdown, extract_code
 
 DF = pd.DataFrame({"region": ["N", "S", "N", "S"], "revenue": [10, 20, 30, 40]})
 GOOD_REPLY = ("ANALYSIS: Sum revenue per region.\n\n```python\n"
@@ -79,3 +79,11 @@ def test_history_is_capped():
     answer_question(client, "q", DF, history)
     sent = client.calls[0]                      # system + capped history + question
     assert len(sent) == 1 + MAX_HISTORY_MESSAGES + 1
+
+
+def test_clean_markdown_removes_br_tags():
+    table = "| Region | Detail |\n|---|---|\n| North | sales=120 <br>- South: 60 |"
+    cleaned = clean_markdown(table)
+    assert "<br" not in cleaned
+    assert "sales=120; - South: 60" in cleaned
+    assert clean_markdown("Line one<br>Line two").splitlines() == ["Line one", "Line two"]
