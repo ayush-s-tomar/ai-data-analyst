@@ -1,12 +1,13 @@
 """File parsing helpers for AI Data Analyst (no Streamlit imports, so they are unit-testable)."""
 from __future__ import annotations
 
+import csv
 import io
 import json
 import os
 import sqlite3
 import tempfile
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 import pandas as pd
 
@@ -104,9 +105,29 @@ def _read_pdf(contents: bytes) -> pd.DataFrame:
     return pd.DataFrame({"text": [line for line in lines if line.strip()]})
 
 
+def _decode_text(contents: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return contents.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return contents.decode("latin-1")
+
+
+def _read_csv(contents: bytes, sep=None) -> pd.DataFrame:
+    """Decode with fallbacks (utf-8, cp1252, latin-1) and sniff the delimiter when not given."""
+    text = _decode_text(contents)
+    if sep is None:
+        try:
+            sep = csv.Sniffer().sniff(text[:8192], delimiters=",;\t|").delimiter
+        except csv.Error:
+            sep = ","
+    return pd.read_csv(io.StringIO(text), sep=sep)
+
+
 _READERS = {
-    ".csv": lambda c, e: pd.read_csv(io.BytesIO(c)),
-    ".tsv": lambda c, e: pd.read_csv(io.BytesIO(c), sep="\t"),
+    ".csv": lambda c, e: _read_csv(c),
+    ".tsv": lambda c, e: _read_csv(c, "\t"),
     ".xlsx": lambda c, e: pd.read_excel(io.BytesIO(c)),
     ".xls": lambda c, e: pd.read_excel(io.BytesIO(c)),
     ".ods": lambda c, e: pd.read_excel(io.BytesIO(c), engine="odf"),
