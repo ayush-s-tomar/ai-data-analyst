@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 from groq import Groq
 
-from analyst import (MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
+from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
 from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, list_sources, read_file_to_df, sensitive_columns
 from report import build_report
@@ -194,7 +194,7 @@ else:
             with st.chat_message(msg["role"], avatar=avatar):
                 if msg.get("is_initial"):
                     st.caption("📊 Initial Analysis")
-                st.markdown(msg["content"])
+                st.markdown(clean_markdown(msg["content"]))
                 if msg.get("code_output"):
                     with st.expander("⚡ Output"):
                         st.text(msg["code_output"])
