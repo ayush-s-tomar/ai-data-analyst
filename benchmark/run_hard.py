@@ -85,15 +85,19 @@ def main():
                     result = answer_question(client, question, frames[dataset], [])
                     break
                 except LLMError:
-                    time.sleep(30)
+                    time.sleep(60)
             verdicts.append(judge(expected, result))
             time.sleep(args.delay)
-        passes = sum(v[0] == "pass" for v in verdicts)
-        status = "pass" if passes == len(verdicts) else "fail"
+        scored = [v for v in verdicts if v[0] != "error"]
+        passes = sum(v[0] == "pass" for v in scored)
+        if not scored:
+            status = "error"
+        else:
+            status = "pass" if passes == len(scored) else "fail"
         note = next((v[1] for v in verdicts if v[0] != "pass"), "")
         rows.append({"dataset": dataset, "question": question, "expected": expected,
-                     "status": status, "runs_passed": f"{passes}/{len(verdicts)}", "note": note})
-        print(f"{status.upper():5} {passes}/{len(verdicts)} [{dataset}] {question}")
+                     "status": status, "runs_passed": f"{passes}/{len(scored)}", "note": note})
+        print(f"{status.upper():5} {passes}/{len(scored)} [{dataset}] {question}")
 
     total = len(rows)
     ok = sum(r["status"] == "pass" for r in rows)

@@ -36,7 +36,7 @@ HARD_QUESTIONS = [
     ("sales", "What is the total revenue in the month of March 2024?",
      lambda d: d.loc[(d["order_date"].dt.year == 2024) & (d["order_date"].dt.month == 3), "revenue"].sum()),
     ("sales", "Which month of 2024 had the highest total revenue?",
-     lambda d: d.groupby(d["order_date"].dt.month)["revenue"].sum().idxmax()),
+     lambda d: "2024-%02d" % d.groupby(d["order_date"].dt.month)["revenue"].sum().idxmax()),
     ("sales", "In the region with the most orders, which product has the highest total units?",
      lambda d: d[d["region"] == d["region"].value_counts().idxmax()].groupby("product")["units"].sum().idxmax()),
     ("sales", "How many orders have revenue above the overall average revenue?",
