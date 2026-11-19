@@ -6,7 +6,7 @@ from groq import Groq
 
 from analyst import (MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, read_file_to_df
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, read_file_to_df
 
 # ─────────────────────────────────────────────────────────────
 # Config
@@ -131,6 +131,17 @@ else:
 
     st.info(f"📄 **{st.session_state.filename}** · {st.session_state.filetype} · "
             f"{len(df):,} rows · {len(df.columns)} cols")
+
+    quality = data_quality(df)
+    with st.expander("Data quality check"):
+        q1, q2, q3 = st.columns(3)
+        q1.metric("Duplicate rows", quality["duplicate_rows"])
+        q2.metric("Missing cells", quality["missing_cells"])
+        q3.metric("Numbers stored as text", len(quality["numbers_stored_as_text"]))
+        if quality["columns_with_missing"]:
+            st.caption("Missing values by column: " + ", ".join(f"{k} ({v})" for k, v in quality["columns_with_missing"].items()))
+        if quality["numbers_stored_as_text"]:
+            st.caption("Columns that look numeric but are text: " + ", ".join(quality["numbers_stored_as_text"]))
 
     sidebar_col, chat_col = st.columns([1, 3])
 

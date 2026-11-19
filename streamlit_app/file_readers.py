@@ -159,6 +159,30 @@ def read_file_to_df(contents: bytes, filename: str) -> pd.DataFrame:
     return ensure_unique_columns(df)
 
 
+def data_quality(df: pd.DataFrame) -> dict:
+    """Cheap health check shown to the user before the first question."""
+    nulls = df.isnull().sum()
+    try:
+        duplicates = int(df.duplicated().sum())
+    except TypeError:  # unhashable cells such as lists from JSON
+        duplicates = 0
+    text_numbers = []
+    for column in df.columns:
+        series = df[column]
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            values = series.dropna()
+            if len(values) and pd.to_numeric(values, errors="coerce").notna().mean() > 0.9:
+                text_numbers.append(str(column))
+    return {
+        "rows": int(len(df)),
+        "columns": int(df.shape[1]),
+        "duplicate_rows": duplicates,
+        "missing_cells": int(nulls.sum()),
+        "columns_with_missing": {str(k): int(v) for k, v in nulls[nulls > 0].items()},
+        "numbers_stored_as_text": text_numbers,
+    }
+
+
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40) -> str:
     """Compact text description of a DataFrame to give the model context."""
     info = [
