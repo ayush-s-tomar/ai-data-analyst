@@ -6,7 +6,7 @@ from groq import Groq
 
 from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, list_sources, read_file_to_df, sensitive_columns
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
 from report import build_report
 from limits import FREE_QUESTIONS_PER_SESSION, allowed
 
@@ -160,6 +160,9 @@ else:
             st.caption("Missing values by column: " + ", ".join(f"{k} ({v})" for k, v in quality["columns_with_missing"].items()))
         if quality["numbers_stored_as_text"]:
             st.caption("Columns that look numeric but are text: " + ", ".join(quality["numbers_stored_as_text"]))
+            if st.button("Convert them to numbers"):
+                st.session_state.df = clean_numeric_text(df, quality["numbers_stored_as_text"])
+                st.rerun()
 
     sidebar_col, chat_col = st.columns([1, 3])
 
