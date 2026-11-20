@@ -303,6 +303,14 @@ def clean_numeric_text(df: pd.DataFrame, columns) -> pd.DataFrame:
     return result
 
 
+def numeric_profile(df: pd.DataFrame) -> pd.DataFrame:
+    """Min, max, mean, median and standard deviation for each numeric column."""
+    numeric = df.select_dtypes("number")
+    if numeric.empty:
+        return pd.DataFrame()
+    return numeric.agg(["min", "max", "mean", "median", "std"]).T.round(3)
+
+
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40, hidden=()) -> str:
     """Compact text description of a DataFrame to give the model context."""
     shown = _mask(df, hidden)

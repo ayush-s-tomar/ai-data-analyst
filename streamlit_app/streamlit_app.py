@@ -6,7 +6,7 @@ from groq import Groq
 
 from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, numeric_profile, list_sources, read_file_to_df, sensitive_columns
 from cache import AnswerCache, make_key
 from report import build_report
 from scriptexport import build_script
@@ -182,6 +182,11 @@ else:
             if st.button("Convert them to numbers"):
                 st.session_state.df = clean_numeric_text(df, quality["numbers_stored_as_text"])
                 st.rerun()
+
+    profile = numeric_profile(df)
+    if not profile.empty:
+        with st.expander("Numeric column profile"):
+            st.dataframe(profile)
 
     sidebar_col, chat_col = st.columns([1, 3])
 
