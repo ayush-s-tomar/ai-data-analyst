@@ -251,13 +251,21 @@ def data_quality(df: pd.DataFrame) -> dict:
     }
 
 
+def _clean_cell(value, max_chars):
+    """Flatten line breaks so a cell cannot pose as a new instruction line, and cap its length."""
+    if not isinstance(value, str):
+        return value
+    value = re.sub(r"[\r\n\t]+", " ", value)
+    return value[:max_chars] + "..." if len(value) > max_chars else value
+
+
 def _shorten(frame: pd.DataFrame, max_cols: int = 40, max_chars: int = 60) -> pd.DataFrame:
     """Cap columns and truncate long text cells so the model prompt stays small."""
     view = frame.iloc[:, :max_cols].copy()
     for column in view.columns:
         series = view[column]
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
-            view[column] = series.map(lambda v: v[:max_chars] + "..." if isinstance(v, str) and len(v) > max_chars else v)
+            view[column] = series.map(lambda v: _clean_cell(v, max_chars))
     return view
 
 
