@@ -8,6 +8,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import zipfile
 import defusedxml.ElementTree as ET
 
 import pandas as pd
@@ -166,9 +167,28 @@ def _sqlite_read(contents: bytes, ext: str, table=None):
             os.unlink(tmp_path)
 
 
+MAX_UNCOMPRESSED_MB = 200
+MAX_ZIP_RATIO = 200
+
+
+def _check_zip_safe(contents: bytes, max_uncompressed: int = MAX_UNCOMPRESSED_MB * 1024 * 1024,
+                    max_ratio: int = MAX_ZIP_RATIO) -> None:
+    """Refuse xlsx/ods files that unpack to far more data than they contain (zip bombs)."""
+    if not zipfile.is_zipfile(io.BytesIO(contents)):
+        return
+    with zipfile.ZipFile(io.BytesIO(contents)) as archive:
+        total = sum(info.file_size for info in archive.infolist())
+    if total > max_uncompressed:
+        raise ValueError("The file expands to too much data when unpacked")
+    if total / max(len(contents), 1) > max_ratio:
+        raise ValueError("The file has a suspicious compression ratio")
+
+
 def list_sources(contents: bytes, filename: str) -> list:
     """Sheet names (Excel/ODS) or table names (SQLite). Empty list for single-table formats."""
     ext = os.path.splitext(filename)[1].lower()
+    if ext in (".xlsx", ".ods"):
+        _check_zip_safe(contents)
     if ext in (".xlsx", ".xls", ".ods"):
         engine = "odf" if ext == ".ods" else None
         return list(pd.ExcelFile(io.BytesIO(contents), engine=engine).sheet_names)
@@ -187,6 +207,8 @@ def read_file_to_df(contents: bytes, filename: str, source=None) -> pd.DataFrame
     if len(contents) > MAX_FILE_MB * 1024 * 1024:
         raise ValueError(f"The file is larger than {MAX_FILE_MB} MB")
 
+    if ext in (".xlsx", ".ods"):
+        _check_zip_safe(contents)
     if source is not None and ext in (".xlsx", ".xls", ".ods"):
         df = pd.read_excel(io.BytesIO(contents), sheet_name=source, engine="odf" if ext == ".ods" else None)
     elif source is not None and ext in (".db", ".sqlite", ".sqlite3"):
