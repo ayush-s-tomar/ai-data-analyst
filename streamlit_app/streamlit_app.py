@@ -8,6 +8,7 @@ from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dat
                      answer_question)
 from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
 from report import build_report
+from scriptexport import build_script
 from limits import FREE_QUESTIONS_PER_SESSION, allowed
 
 # ─────────────────────────────────────────────────────────────
@@ -179,6 +180,9 @@ else:
         if any(m["role"] == "user" for m in st.session_state.messages):
             st.download_button("Download report (.md)", build_report(st.session_state.filename, st.session_state.messages),
                                file_name="analysis-report.md", mime="text/markdown")
+        if any(m["role"] == "user" for m in st.session_state.messages):
+            st.download_button("Download code (.py)", build_script(st.session_state.filename, st.session_state.messages),
+                               file_name="analysis.py", mime="text/x-python")
         st.subheader("Session Memory")
         user_msgs = [m for m in st.session_state.messages if m["role"] == "user"]
         if not user_msgs:
