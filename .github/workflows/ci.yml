@@ -15,19 +15,20 @@ concurrency:
 
 jobs:
   test:
-    name: Lint and tests (${{ matrix.os }})
+    name: Lint and tests (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: "pip"
           cache-dependency-path: |
             requirements-dev.txt

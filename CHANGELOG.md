@@ -1,6 +1,12 @@
 ﻿# Changelog
 
 ## Unreleased
+- Zip-bomb guard for xlsx/ods and a 60-page cap for PDFs
+- Prompt-injection hardening: dataset text declared untrusted, line breaks flattened in cells
+- Detection and conversion of text numbers with commas and currency symbols
+- Download generated code as a runnable script
+- Benchmark runner: `--only` filter, separate partial-results file, no overwrite on API errors
+- CI matrix: Python 3.12 and 3.13 on Linux and Windows
 - Sheet and table selector for Excel, ODS and SQLite
 - Sensitive column masking in prompts
 - Data-quality check and one-click text-to-number conversion
