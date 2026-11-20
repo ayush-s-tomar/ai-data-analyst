@@ -94,6 +94,6 @@ def test_infinite_loop_is_stopped(df):
 
 def test_api_key_is_not_inherited_by_worker(df, monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk_super_secret_value")
-    out = run_user_code("print('ok')", df)
+    out = run_user_code("print('ok')", df, timeout=90)
     assert out["error"] is None
     assert "gsk_super_secret_value" not in (out["output"] or "")

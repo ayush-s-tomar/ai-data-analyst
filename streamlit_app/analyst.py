@@ -66,6 +66,19 @@ Charts produced: {charts}
 Error (if any): {error}"""
 
 
+def retry_hint(message: str) -> str:
+    """Extract 'try again in 8m14.64s' style hints from a provider error message."""
+    match = re.search(r"try again in ([0-9hms.]+)", message or "")
+    return match.group(1).rstrip(".") if match else ""
+
+
+def rate_limit_message(message: str) -> str:
+    base = ("The daily free quota for the AI service is used up." if "per day" in (message or "")
+            else "The AI service is rate-limited right now.")
+    hint = retry_hint(message)
+    return base + (f" Try again in about {hint}." if hint else " Please wait a minute and try again.")
+
+
 class LLMError(Exception):
     """A user-presentable problem talking to the model service."""
 
@@ -78,7 +91,7 @@ def chat(client, system: str, messages: list, max_tokens: int = 4000, temperatur
             max_tokens=max_tokens, temperature=temperature,
         )
     except groq.RateLimitError as exc:
-        raise LLMError("The free AI service is rate-limited right now. Please wait a minute and try again.") from exc
+        raise LLMError(rate_limit_message(str(exc))) from exc
     except groq.APIConnectionError as exc:
         raise LLMError("Could not reach the AI service. Please check your connection and try again.") from exc
     except groq.APIStatusError as exc:

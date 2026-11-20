@@ -256,6 +256,17 @@ def _mask(df: pd.DataFrame, hidden) -> pd.DataFrame:
     return view
 
 
+def clean_numeric_text(df: pd.DataFrame, columns) -> pd.DataFrame:
+    """Turn text such as '1,200' or '$300' into numbers. Cells that still fail become missing."""
+    result = df.copy()
+    for column in columns:
+        if column not in result.columns:
+            continue
+        cleaned = result[column].map(lambda v: re.sub(r"[,\s$%\u20b9\u20ac\u00a3]", "", v) if isinstance(v, str) else v)
+        result[column] = pd.to_numeric(cleaned, errors="coerce")
+    return result
+
+
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40, hidden=()) -> str:
     """Compact text description of a DataFrame to give the model context."""
     shown = _mask(df, hidden)

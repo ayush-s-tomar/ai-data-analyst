@@ -218,6 +218,24 @@ def _clean_env(workdir: str) -> dict:
     return env
 
 
+def docker_command(image: str = "ai-data-analyst") -> list:
+    """Command that runs the worker in a locked-down container: no network, read-only, limited."""
+    return [
+        "docker", "run", "--rm", "-i", "--network", "none", "--read-only",
+        "--tmpfs", "/tmp:size=64m", "--memory", "512m", "--cpus", "1", "--pids-limit", "64",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "-e", "MPLCONFIGDIR=/tmp", "-e", "HOME=/tmp", "-e", "MPLBACKEND=Agg", "-e", "OPENBLAS_NUM_THREADS=1",
+        "--entrypoint", "python", image, "-I", "/app/sandbox.py", "--worker",
+    ]
+
+
+def _worker_command(workdir: str):
+    """Pick the runner from SANDBOX_MODE (subprocess by default, docker when requested)."""
+    if os.environ.get("SANDBOX_MODE", "subprocess").lower() == "docker":
+        return docker_command(os.environ.get("SANDBOX_IMAGE", "ai-data-analyst")), os.environ.copy()
+    return [sys.executable, "-I", os.path.abspath(__file__), "--worker"], _clean_env(workdir)
+
+
 def run_user_code(code: str, df, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict:
     """Validate and run generated code in an isolated subprocess.
 
@@ -231,11 +249,11 @@ def run_user_code(code: str, df, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict
     payload = pickle.dumps({"code": code, "df": df, "timeout": timeout}, protocol=4)
     with tempfile.TemporaryDirectory(prefix="ada_sandbox_") as workdir:
         try:
-            proc = subprocess.run(
-                [sys.executable, "-I", os.path.abspath(__file__), "--worker"],
-                input=payload, capture_output=True, timeout=timeout,
-                env=_clean_env(workdir), cwd=workdir, check=False,
-            )
+            command, env = _worker_command(workdir)
+            proc = subprocess.run(command, input=payload, capture_output=True, timeout=timeout,
+                                  env=env, cwd=workdir, check=False)
+        except FileNotFoundError:
+            return {"output": "", "charts": [], "error": "Sandbox mode 'docker' needs the docker command on PATH."}
         except subprocess.TimeoutExpired:
             return {"output": "", "charts": [],
                     "error": f"The analysis took longer than {timeout} seconds and was stopped."}
