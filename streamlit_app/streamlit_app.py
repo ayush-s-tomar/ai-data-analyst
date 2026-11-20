@@ -7,6 +7,7 @@ from groq import Groq
 from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
 from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
+from cache import AnswerCache, make_key
 from report import build_report
 from scriptexport import build_script
 from sample_data import sample_sales
@@ -271,7 +272,13 @@ else:
 
             with st.spinner("Analyzing with memory context..."):
                 try:
-                    result = answer_question(client, final_question, df, history_for_api, hidden=hidden)
+                    cache = st.session_state.setdefault("answer_cache", AnswerCache())
+                    cache_key = make_key(df, final_question, hidden)
+                    result = None if history_for_api else cache.get(cache_key)
+                    if result is None:
+                        result = answer_question(client, final_question, df, history_for_api, hidden=hidden)
+                        if not history_for_api and not result["code_error"]:
+                            cache.put(cache_key, result)
                     st.session_state.messages.append({
                         "role": "assistant", "content": result["content"],
                         "charts": result["charts"], "code_output": result["code_output"],
