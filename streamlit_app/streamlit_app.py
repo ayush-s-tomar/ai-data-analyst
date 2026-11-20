@@ -9,7 +9,7 @@ from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dat
 from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
 from report import build_report
 from scriptexport import build_script
-from limits import FREE_QUESTIONS_PER_SESSION, allowed
+from limits import FREE_QUESTIONS_PER_SESSION, allowed, clean_question
 
 # ─────────────────────────────────────────────────────────────
 # Config
@@ -233,6 +233,7 @@ else:
         question = st.chat_input("Ask a follow-up or a new question...")
         pending = st.session_state.pop("pending_question", None)
         final_question = question or pending
+        final_question = clean_question(final_question) or None
 
         if final_question and not allowed(st.session_state.questions_asked, USING_OWN_KEY):
             st.warning(f"The shared demo key is limited to {FREE_QUESTIONS_PER_SESSION} questions per session. "
