@@ -199,6 +199,11 @@ def read_file_to_df(contents: bytes, filename: str, source=None) -> pd.DataFrame
     return ensure_unique_columns(df)
 
 
+def _strip_symbols(value):
+    """Remove thousands separators, spaces and currency or percent signs from text."""
+    return re.sub(r"[,\s$%\u20b9\u20ac\u00a3]", "", value) if isinstance(value, str) else value
+
+
 def data_quality(df: pd.DataFrame) -> dict:
     """Cheap health check shown to the user before the first question."""
     nulls = df.isnull().sum()
@@ -211,7 +216,7 @@ def data_quality(df: pd.DataFrame) -> dict:
         series = df[column]
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
             values = series.dropna()
-            if len(values) and pd.to_numeric(values, errors="coerce").notna().mean() > 0.9:
+            if len(values) and pd.to_numeric(values.map(_strip_symbols), errors="coerce").notna().mean() > 0.9:
                 text_numbers.append(str(column))
     return {
         "rows": int(len(df)),
