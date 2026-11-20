@@ -9,6 +9,7 @@ from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dat
 from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
 from report import build_report
 from scriptexport import build_script
+from sample_data import sample_sales
 from limits import FREE_QUESTIONS_PER_SESSION, allowed, clean_question
 
 # ─────────────────────────────────────────────────────────────
@@ -99,6 +100,22 @@ if st.session_state.df is None:  # noqa: C901
     )
     st.caption("🔒 Privacy: column names, data types, summary statistics and the first rows of your file are "
                "sent to Groq's API to answer your questions. Don't upload sensitive data to the public demo.")
+
+    if st.button("Or try the built-in sample sales data"):
+        sample = sample_sales()
+        with st.spinner("Analyzing your data..."):
+            try:
+                summary = analyze_dataframe(client, sample)
+            except LLMError as exc:
+                summary = f"The sample loaded, but the automatic summary is unavailable: {exc}"
+        st.session_state.df = sample
+        st.session_state.filename = "sample_sales.csv"
+        st.session_state.filetype = "CSV"
+        st.session_state.messages = [{
+            "role": "assistant", "content": summary, "is_initial": True,
+            "charts": [], "code_output": "", "code_error": None, "has_code": False,
+        }]
+        st.rerun()
 
     if uploaded is not None:
         ext = os.path.splitext(uploaded.name)[1].lower()
