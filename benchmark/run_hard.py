@@ -39,6 +39,12 @@ def strict_match(expected, output):
     return any(math.isclose(n, expected, rel_tol=0.01, abs_tol=0.01) for n in numbers_in(tail))
 
 
+def select_questions(questions, only="", limit=None):
+    """Questions whose text contains `only` (case-insensitive), capped at `limit`."""
+    chosen = [q for q in questions if not only or only.lower() in q[1].lower()]
+    return chosen if limit is None else chosen[:limit]
+
+
 def judge(expected, result):
     if result is None:
         return "error", "no result"
@@ -57,6 +63,7 @@ def main():
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--delay", type=float, default=3.0)
     parser.add_argument("--limit", type=int, default=len(HARD_QUESTIONS))
+    parser.add_argument("--only", default="", help="run only questions containing this text")
     args = parser.parse_args()
 
     frames = {k: v() for k, v in HARD_DATASETS.items()}
@@ -75,7 +82,7 @@ def main():
     client = groq.Groq(api_key=key)
 
     rows = []
-    for dataset, question, fn in HARD_QUESTIONS[:args.limit]:
+    for dataset, question, fn in select_questions(HARD_QUESTIONS, args.only, args.limit):
         expected = ground_truth(fn, frames[dataset])
         verdicts = []
         for _ in range(args.runs):
@@ -99,7 +106,11 @@ def main():
                      "status": status, "runs_passed": f"{passes}/{len(scored)}", "note": note})
         print(f"{status.upper():5} {passes}/{len(scored)} [{dataset}] {question}")
 
+    if not any(r["status"] != "error" for r in rows):
+        sys.exit("Every question errored (probably the API quota). Results files left unchanged.")
     total = len(rows)
+    full_run = not args.only and args.limit >= len(HARD_QUESTIONS)
+    out_name = "results_hard.md" if full_run else "results_hard_partial.md"
     ok = sum(r["status"] == "pass" for r in rows)
     consistent_runs = sum(int(r["runs_passed"].split("/")[0]) for r in rows)
     all_runs = sum(int(r["runs_passed"].split("/")[1]) for r in rows)
@@ -109,9 +120,9 @@ def main():
              "| Dataset | Question | Runs passed | Note |", "|---|---|---|---|"]
     for r in rows:
         lines.append(f"| {r['dataset']} | {r['question']} | {r['runs_passed']} | {r['note']} |")
-    (OUT_DIR / "results_hard.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    (OUT_DIR / "results_hard.json").write_text(json.dumps(rows, indent=2, default=str) + "\n", encoding="utf-8")
-    print(f"\nPassed on every run: {ok}/{total}. Wrote benchmark/results_hard.md")
+    (OUT_DIR / out_name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (OUT_DIR / out_name.replace(".md", ".json")).write_text(json.dumps(rows, indent=2, default=str) + "\n", encoding="utf-8")
+    print(f"\nPassed on every run: {ok}/{total}. Wrote benchmark/{out_name}")
 
 
 if __name__ == "__main__":
