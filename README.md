@@ -155,6 +155,20 @@ docker run --rm -p 8501:8501 -e GROQ_API_KEY=YOUR_GROQ_KEY ai-data-analyst
 The container runs as a non-root user and the key is passed as an environment variable, never baked into the image.
 Running the app in a container does not by itself isolate the generated-code worker from the app; see the Security model.
 
+### Stronger isolation with Docker
+
+Build the image, then run the app with `SANDBOX_MODE=docker` so every generated script runs in a throwaway container
+(no network, read-only filesystem, 512 MB memory, 1 CPU, 64 processes, all capabilities dropped):
+
+```
+docker build -t ai-data-analyst .
+$env:SANDBOX_MODE = "docker"
+streamlit run streamlit_app/streamlit_app.py
+```
+
+The public Streamlit Cloud demo cannot run Docker, so it uses the default `subprocess` mode.
+
+
 ## â˜ï¸ Deployment (Streamlit Community Cloud)
 
 1. Push your project to GitHub
