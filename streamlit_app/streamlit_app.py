@@ -11,11 +11,13 @@ from cache import AnswerCache, make_key
 from report import build_report
 from scriptexport import build_script
 from sample_data import sample_sales
+from telemetry import configure_logging, timed_answer
 from limits import FREE_QUESTIONS_PER_SESSION, allowed, clean_question
 
 # ─────────────────────────────────────────────────────────────
 # Config
 # ─────────────────────────────────────────────────────────────
+configure_logging()
 st.set_page_config(page_title="AI Data Analyst", page_icon="📊", layout="wide")
 
 
@@ -281,7 +283,7 @@ else:
                     cache_key = make_key(df, final_question, hidden)
                     result = None if history_for_api else cache.get(cache_key)
                     if result is None:
-                        result = answer_question(client, final_question, df, history_for_api, hidden=hidden)
+                        result = timed_answer(answer_question, client, final_question, df, history_for_api, hidden=hidden)
                         if not history_for_api and not result["code_error"]:
                             cache.put(cache_key, result)
                     st.session_state.messages.append({
