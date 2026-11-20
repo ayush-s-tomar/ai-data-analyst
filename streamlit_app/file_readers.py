@@ -14,6 +14,7 @@ import defusedxml.ElementTree as ET
 import pandas as pd
 
 MAX_FILE_MB = 25
+MAX_PDF_PAGES = 60
 
 # Pickle files are deliberately NOT supported: unpickling untrusted data can execute arbitrary code.
 SUPPORTED_EXTENSIONS = [
@@ -92,7 +93,7 @@ def _read_pdf(contents: bytes) -> pd.DataFrame:
     rows: list = []
     lines: list[str] = []
     with pdfplumber.open(io.BytesIO(contents)) as pdf:
-        for page in pdf.pages:
+        for page in pdf.pages[:MAX_PDF_PAGES]:
             for table in page.extract_tables():
                 if table:
                     rows.extend(table)
