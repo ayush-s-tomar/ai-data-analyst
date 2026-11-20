@@ -1,6 +1,9 @@
 ﻿# Changelog
 
 ## Unreleased
+- Built-in sample dataset button, numeric column profile, per-session answer cache
+- Question cleaning and length cap, privacy-safe timing logs
+- Version shown in the sidebar and `scripts/check.ps1`
 - Zip-bomb guard for xlsx/ods and a 60-page cap for PDFs
 - Prompt-injection hardening: dataset text declared untrusted, line breaks flattened in cells
 - Detection and conversion of text numbers with commas and currency symbols

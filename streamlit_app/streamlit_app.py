@@ -12,6 +12,7 @@ from report import build_report
 from scriptexport import build_script
 from sample_data import sample_sales
 from telemetry import configure_logging, timed_answer
+from version import __version__
 from limits import FREE_QUESTIONS_PER_SESSION, allowed, clean_question
 
 # ─────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ USER_KEY = st.sidebar.text_input(
     help="Leave empty to use the shared demo key, which is limited per session.").strip()
 GROQ_API_KEY = USER_KEY or get_api_key()
 USING_OWN_KEY = bool(USER_KEY)
+st.sidebar.caption(f"AI Data Analyst v{__version__}")
 if "questions_asked" not in st.session_state:
     st.session_state.questions_asked = 0
 if not GROQ_API_KEY:
