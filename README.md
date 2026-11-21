@@ -260,6 +260,13 @@ Known-answer questions are run through the real pipeline (prompt, generated code
 
 How the hard tier was developed: the first run scored 16/21 with a last-line checker. Reviewing the failures showed three checker artifacts and two ambiguous questions, so the checker and questions were changed after seeing results. The one real model weakness found was inconsistent refusal when a question's premise is missing from the data (for example "last year vs this year" on a single year). A prompt rule was added for it. Validation of that rule is pending, so treat 19/21 as an upper bound. Datasets are synthetic and each run uses one model (`openai/gpt-oss-120b`).
 
+## Documentation
+
+- [Architecture and threat model](docs/ARCHITECTURE.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+
 ## ⚠️ Limitations
 
 - **The default containment is not a full sandbox.** Generated code is validated and runs in a separate time-limited process, but that process shares the host with the app. Docker mode is stronger but cannot run on Streamlit Community Cloud. The public demo uses a shared Groq API key, so treat it as a personal analysis tool and don't upload sensitive data.

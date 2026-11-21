@@ -8,11 +8,13 @@ import os
 import re
 import sqlite3
 import tempfile
+import zipfile
 import defusedxml.ElementTree as ET
 
 import pandas as pd
 
 MAX_FILE_MB = 25
+MAX_PDF_PAGES = 60
 
 # Pickle files are deliberately NOT supported: unpickling untrusted data can execute arbitrary code.
 SUPPORTED_EXTENSIONS = [
@@ -91,7 +93,7 @@ def _read_pdf(contents: bytes) -> pd.DataFrame:
     rows: list = []
     lines: list[str] = []
     with pdfplumber.open(io.BytesIO(contents)) as pdf:
-        for page in pdf.pages:
+        for page in pdf.pages[:MAX_PDF_PAGES]:
             for table in page.extract_tables():
                 if table:
                     rows.extend(table)
@@ -166,9 +168,28 @@ def _sqlite_read(contents: bytes, ext: str, table=None):
             os.unlink(tmp_path)
 
 
+MAX_UNCOMPRESSED_MB = 200
+MAX_ZIP_RATIO = 200
+
+
+def _check_zip_safe(contents: bytes, max_uncompressed: int = MAX_UNCOMPRESSED_MB * 1024 * 1024,
+                    max_ratio: int = MAX_ZIP_RATIO) -> None:
+    """Refuse xlsx/ods files that unpack to far more data than they contain (zip bombs)."""
+    if not zipfile.is_zipfile(io.BytesIO(contents)):
+        return
+    with zipfile.ZipFile(io.BytesIO(contents)) as archive:
+        total = sum(info.file_size for info in archive.infolist())
+    if total > max_uncompressed:
+        raise ValueError("The file expands to too much data when unpacked")
+    if total / max(len(contents), 1) > max_ratio:
+        raise ValueError("The file has a suspicious compression ratio")
+
+
 def list_sources(contents: bytes, filename: str) -> list:
     """Sheet names (Excel/ODS) or table names (SQLite). Empty list for single-table formats."""
     ext = os.path.splitext(filename)[1].lower()
+    if ext in (".xlsx", ".ods"):
+        _check_zip_safe(contents)
     if ext in (".xlsx", ".xls", ".ods"):
         engine = "odf" if ext == ".ods" else None
         return list(pd.ExcelFile(io.BytesIO(contents), engine=engine).sheet_names)
@@ -187,6 +208,8 @@ def read_file_to_df(contents: bytes, filename: str, source=None) -> pd.DataFrame
     if len(contents) > MAX_FILE_MB * 1024 * 1024:
         raise ValueError(f"The file is larger than {MAX_FILE_MB} MB")
 
+    if ext in (".xlsx", ".ods"):
+        _check_zip_safe(contents)
     if source is not None and ext in (".xlsx", ".xls", ".ods"):
         df = pd.read_excel(io.BytesIO(contents), sheet_name=source, engine="odf" if ext == ".ods" else None)
     elif source is not None and ext in (".db", ".sqlite", ".sqlite3"):
@@ -197,6 +220,11 @@ def read_file_to_df(contents: bytes, filename: str, source=None) -> pd.DataFrame
     if df.empty:
         raise ValueError("No rows were found in the file")
     return ensure_unique_columns(df)
+
+
+def _strip_symbols(value):
+    """Remove thousands separators, spaces and currency or percent signs from text."""
+    return re.sub(r"[,\s$%\u20b9\u20ac\u00a3]", "", value) if isinstance(value, str) else value
 
 
 def data_quality(df: pd.DataFrame) -> dict:
@@ -211,7 +239,7 @@ def data_quality(df: pd.DataFrame) -> dict:
         series = df[column]
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
             values = series.dropna()
-            if len(values) and pd.to_numeric(values, errors="coerce").notna().mean() > 0.9:
+            if len(values) and pd.to_numeric(values.map(_strip_symbols), errors="coerce").notna().mean() > 0.9:
                 text_numbers.append(str(column))
     return {
         "rows": int(len(df)),
@@ -223,13 +251,21 @@ def data_quality(df: pd.DataFrame) -> dict:
     }
 
 
+def _clean_cell(value, max_chars):
+    """Flatten line breaks so a cell cannot pose as a new instruction line, and cap its length."""
+    if not isinstance(value, str):
+        return value
+    value = re.sub(r"[\r\n\t]+", " ", value)
+    return value[:max_chars] + "..." if len(value) > max_chars else value
+
+
 def _shorten(frame: pd.DataFrame, max_cols: int = 40, max_chars: int = 60) -> pd.DataFrame:
     """Cap columns and truncate long text cells so the model prompt stays small."""
     view = frame.iloc[:, :max_cols].copy()
     for column in view.columns:
         series = view[column]
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
-            view[column] = series.map(lambda v: v[:max_chars] + "..." if isinstance(v, str) and len(v) > max_chars else v)
+            view[column] = series.map(lambda v: _clean_cell(v, max_chars))
     return view
 
 
@@ -265,6 +301,14 @@ def clean_numeric_text(df: pd.DataFrame, columns) -> pd.DataFrame:
         cleaned = result[column].map(lambda v: re.sub(r"[,\s$%\u20b9\u20ac\u00a3]", "", v) if isinstance(v, str) else v)
         result[column] = pd.to_numeric(cleaned, errors="coerce")
     return result
+
+
+def numeric_profile(df: pd.DataFrame) -> pd.DataFrame:
+    """Min, max, mean, median and standard deviation for each numeric column."""
+    numeric = df.select_dtypes("number")
+    if numeric.empty:
+        return pd.DataFrame()
+    return numeric.agg(["min", "max", "mean", "median", "std"]).T.round(3)
 
 
 def df_to_string(df: pd.DataFrame, max_rows: int = 50, max_stat_columns: int = 40, hidden=()) -> str:

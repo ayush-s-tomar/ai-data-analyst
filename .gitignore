@@ -22,3 +22,5 @@ benchmark/results_hard.json
 
 .coverage
 htmlcov/
+benchmark/results_hard_partial.md
+benchmark/results_hard_partial.json

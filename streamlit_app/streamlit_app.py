@@ -6,13 +6,19 @@ from groq import Groq
 
 from analyst import (clean_markdown, MAX_HISTORY_MESSAGES, LLMError, analyze_dataframe,
                      answer_question)
-from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, list_sources, read_file_to_df, sensitive_columns
+from file_readers import MAX_FILE_MB, SUPPORTED_EXTENSIONS, data_quality, clean_numeric_text, numeric_profile, list_sources, read_file_to_df, sensitive_columns
+from cache import AnswerCache, make_key
 from report import build_report
-from limits import FREE_QUESTIONS_PER_SESSION, allowed
+from scriptexport import build_script
+from sample_data import sample_sales
+from telemetry import configure_logging, timed_answer
+from version import __version__
+from limits import FREE_QUESTIONS_PER_SESSION, allowed, clean_question
 
 # ─────────────────────────────────────────────────────────────
 # Config
 # ─────────────────────────────────────────────────────────────
+configure_logging()
 st.set_page_config(page_title="AI Data Analyst", page_icon="📊", layout="wide")
 
 
@@ -29,6 +35,7 @@ USER_KEY = st.sidebar.text_input(
     help="Leave empty to use the shared demo key, which is limited per session.").strip()
 GROQ_API_KEY = USER_KEY or get_api_key()
 USING_OWN_KEY = bool(USER_KEY)
+st.sidebar.caption(f"AI Data Analyst v{__version__}")
 if "questions_asked" not in st.session_state:
     st.session_state.questions_asked = 0
 if not GROQ_API_KEY:
@@ -99,6 +106,22 @@ if st.session_state.df is None:  # noqa: C901
     st.caption("🔒 Privacy: column names, data types, summary statistics and the first rows of your file are "
                "sent to Groq's API to answer your questions. Don't upload sensitive data to the public demo.")
 
+    if st.button("Or try the built-in sample sales data"):
+        sample = sample_sales()
+        with st.spinner("Analyzing your data..."):
+            try:
+                summary = analyze_dataframe(client, sample)
+            except LLMError as exc:
+                summary = f"The sample loaded, but the automatic summary is unavailable: {exc}"
+        st.session_state.df = sample
+        st.session_state.filename = "sample_sales.csv"
+        st.session_state.filetype = "CSV"
+        st.session_state.messages = [{
+            "role": "assistant", "content": summary, "is_initial": True,
+            "charts": [], "code_output": "", "code_error": None, "has_code": False,
+        }]
+        st.rerun()
+
     if uploaded is not None:
         ext = os.path.splitext(uploaded.name)[1].lower()
         data = uploaded.getvalue()
@@ -164,6 +187,11 @@ else:
                 st.session_state.df = clean_numeric_text(df, quality["numbers_stored_as_text"])
                 st.rerun()
 
+    profile = numeric_profile(df)
+    if not profile.empty:
+        with st.expander("Numeric column profile"):
+            st.dataframe(profile)
+
     sidebar_col, chat_col = st.columns([1, 3])
 
     with sidebar_col:
@@ -179,6 +207,9 @@ else:
         if any(m["role"] == "user" for m in st.session_state.messages):
             st.download_button("Download report (.md)", build_report(st.session_state.filename, st.session_state.messages),
                                file_name="analysis-report.md", mime="text/markdown")
+        if any(m["role"] == "user" for m in st.session_state.messages):
+            st.download_button("Download code (.py)", build_script(st.session_state.filename, st.session_state.messages),
+                               file_name="analysis.py", mime="text/x-python")
         st.subheader("Session Memory")
         user_msgs = [m for m in st.session_state.messages if m["role"] == "user"]
         if not user_msgs:
@@ -229,6 +260,7 @@ else:
         question = st.chat_input("Ask a follow-up or a new question...")
         pending = st.session_state.pop("pending_question", None)
         final_question = question or pending
+        final_question = clean_question(final_question) or None
 
         if final_question and not allowed(st.session_state.questions_asked, USING_OWN_KEY):
             st.warning(f"The shared demo key is limited to {FREE_QUESTIONS_PER_SESSION} questions per session. "
@@ -249,7 +281,13 @@ else:
 
             with st.spinner("Analyzing with memory context..."):
                 try:
-                    result = answer_question(client, final_question, df, history_for_api, hidden=hidden)
+                    cache = st.session_state.setdefault("answer_cache", AnswerCache())
+                    cache_key = make_key(df, final_question, hidden)
+                    result = None if history_for_api else cache.get(cache_key)
+                    if result is None:
+                        result = timed_answer(answer_question, client, final_question, df, history_for_api, hidden=hidden)
+                        if not history_for_api and not result["code_error"]:
+                            cache.put(cache_key, result)
                     st.session_state.messages.append({
                         "role": "assistant", "content": result["content"],
                         "charts": result["charts"], "code_output": result["code_output"],
